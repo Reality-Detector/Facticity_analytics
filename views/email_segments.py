@@ -10,7 +10,7 @@ import json
 import requests
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import ipaddress
 import time
 import re
@@ -27,6 +27,11 @@ from database.mongo_client import get_db_connection, fetch_all_emails_with_times
 from database.auth0_client import export_all_users
 from services.analytics import filter_emails_exclusively, classify_engagement_with_pandas
 from utils.chart_utils import get_table_download_link
+from utils.user_profile_utils import (
+    create_bedrock_client, load_iab_categories, generate_category_embeddings,
+    load_query_embeddings, save_query_embeddings, fetch_user_queries_with_date_range,
+    categorize_queries, generate_user_profiles, generate_query_embeddings_batch
+)
 from config import AUTH0_IP_LOOKUP_FILEPATH
 
 # Constants
@@ -41,14 +46,10 @@ def load_user_profiles():
     """Load user profiles data from JSON file."""
     try:
         # Try current directory first, then parent directory
-        for path in [USER_PROFILES_FILE, os.path.join("..", USER_PROFILES_FILE)]:
-            if os.path.exists(path):
-                with open(path, 'r') as f:
-                    data = json.load(f)
-                st.success(f"Loaded {len(data)} user profiles from {path}")
-                return data
-        st.warning("user_profiles.json not found in current or parent directory")
-        return {}
+        with open(USER_PROFILES_FILE, 'r') as f:
+            data = json.load(f)
+        st.success(f"Loaded {len(data)} user profiles from {USER_PROFILES_FILE}")
+        return data
     except Exception as e:
         st.error(f"Error loading user profiles: {e}")
         return {}
@@ -893,6 +894,103 @@ def aggregate_category_scores(data):
     return avg_scores
 
 
+def generate_user_profiles_integrated(start_date, end_date, max_users=500, max_queries_per_user=30):
+    """Generate user profiles with date range selection"""
+    st.subheader("Generate User Profiles")
+
+    # Show date range info
+    days_diff = (end_date - start_date).days
+    st.info(
+        f"Analyzing {days_diff} days of data from {start_date.date()} to {end_date.date()}")
+
+    # Load IAB categories
+    categories = load_iab_categories()
+    if not categories:
+        st.error(
+            "IAB categories not found. Please ensure claude-iab-descriptors.json exists in data/iab/")
+        return None
+
+    st.success(f"Loaded {len(categories)} IAB categories")
+
+    # Connect to Bedrock
+    bedrock_client = create_bedrock_client()
+    if not bedrock_client:
+        return None
+
+    # Generate/load category embeddings
+    with st.spinner("Loading category embeddings..."):
+        cat_embeddings = generate_category_embeddings(
+            bedrock_client, categories)
+
+    if not cat_embeddings:
+        st.error("Failed to generate category embeddings")
+        return None
+
+    # Fetch user queries
+    with st.spinner(f"Fetching user queries (max {max_users} users, {max_queries_per_user} queries each)..."):
+        # Import the mongo client function that returns the client, not collection
+        from database.mongo_client import MongoClient
+        from config import DB_CONNECTION_STRING
+
+        def get_mongo_client():
+            return MongoClient(DB_CONNECTION_STRING)
+
+        unique_df, full_df, meta = fetch_user_queries_with_date_range(
+            get_mongo_client, start_date, end_date, max_users, max_queries_per_user
+        )
+
+    if full_df.empty:
+        st.warning("No queries found for the selected date range")
+        if 'error' in meta:
+            st.error(f"Database error: {meta['error']}")
+        return None
+
+    st.success(
+        f"Found {len(full_df)} queries from {meta.get('user_count', 0)} users")
+
+    # Show data summary
+    if meta.get('total_queries'):
+        st.info(f"Total queries in date range: {meta['total_queries']}")
+        if meta.get('filtered_queries'):
+            st.info(f"After filtering: {meta['filtered_queries']}")
+
+    # Generate query embeddings
+    query_embeddings = load_query_embeddings()
+    new_queries = [q for q in unique_df['query'].unique()
+                   if q not in query_embeddings]
+
+    if new_queries:
+        st.info(f"Generating embeddings for {len(new_queries)} new queries...")
+        new_embeddings = generate_query_embeddings_batch(
+            bedrock_client, new_queries)
+        query_embeddings.update(new_embeddings)
+        save_query_embeddings(query_embeddings)
+
+    # Categorize queries
+    with st.spinner("Categorizing queries..."):
+        categorized_df = categorize_queries(
+            full_df, query_embeddings, cat_embeddings)
+
+    # Generate profiles
+    profiles = generate_user_profiles(categorized_df)
+
+    if profiles:
+    # Save profiles to the same file path
+        USER_PROFILES_FILE = "data/email_segments/user_profiles.json"
+        os.makedirs(os.path.dirname(USER_PROFILES_FILE), exist_ok=True)
+        with open(USER_PROFILES_FILE, 'w') as f:
+            json.dump(profiles, f, indent=2)
+        st.success(f"Generated and saved {len(profiles)} user profiles")
+        # Show top categories
+        if 'top_category' in categorized_df.columns:
+            st.subheader("Top Categories Distribution")
+            top_cats = categorized_df['top_category'].value_counts().head(10)
+            fig = px.bar(x=top_cats.values, y=top_cats.index, orientation='h',
+                         title="Top 10 Query Categories")
+            st.plotly_chart(fig)
+
+    return profiles
+
 def show_email_segments_view():
     """
     Unified Email Segments view: fetches all data and runs all analysis on demand.
@@ -1174,14 +1272,72 @@ def show_email_segments_view():
     with analysis_tab4:
         st.subheader("User Profiles Analysis")
 
-        # Load user profiles data
+        # Add profile generation section with performance controls
+        st.subheader("Generate New Profiles")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            profile_start_date = st.date_input(
+                "Profile Start Date",
+                # Default to 7 days for better performance
+                value=datetime.now().date() - timedelta(days=7),
+                max_value=datetime.now().date()
+            )
+        with col2:
+            profile_end_date = st.date_input(
+                "Profile End Date",
+                value=datetime.now().date(),
+                max_value=datetime.now().date()
+            )
+
+        # Performance controls
+        with st.expander("Advanced Settings"):
+            col3, col4 = st.columns(2)
+            with col3:
+                max_users = st.number_input(
+                    "Max Users",
+                    min_value=10,
+                    max_value=2000,
+                    value=500,
+                    help="Reduce for faster processing"
+                )
+            with col4:
+                max_queries = st.number_input(
+                    "Max Queries per User",
+                    min_value=5,
+                    max_value=100,
+                    value=30,
+                    help="Reduce for faster processing"
+                )
+
+        # Show estimated date range
+        days_selected = (profile_end_date - profile_start_date).days
+        if days_selected > 7:
+            st.warning(
+                f"may take a while. consider shorter range for faster performance")
+
+        if st.button("Generate User Profiles", key="generate_profiles"):
+            start_dt = datetime.combine(
+                profile_start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+            end_dt = datetime.combine(
+                profile_end_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+
+            new_profiles = generate_user_profiles_integrated(
+                start_dt, end_dt, max_users, max_queries)
+            if new_profiles:
+                # Clear the cached data so it reloads fresh data
+                load_user_profiles.clear()
+                st.rerun()
+
+        # Load user profiles data (existing code continues...)
         profiles_data = load_user_profiles()
         if ('total_queries' not in auth0_df.columns and profiles_data):
             auth0_df = merge_with_user_profiles(auth0_df, profiles_data)
             st.session_state['auth0'] = auth0_df
 
         if not profiles_data:
-            st.info("No user profiles data available. Ensure user_profiles.json exists in the current or parent directory.")
+            st.info(
+                "No user profiles data available. Ensure user_profiles.json exists in the current or parent directory.")
         else:
             # Profile analysis options
             profile_analysis_type = st.selectbox(
@@ -1196,7 +1352,7 @@ def show_email_segments_view():
                 total_queries = sum(profile.get('total_queries', 0)
                                     for profile in profiles_data.values())
                 total_analyzed = sum(profile.get('analysed_queries', 0)
-                                    for profile in profiles_data.values())
+                                     for profile in profiles_data.values())
 
                 col1.metric("Total Profiled Users", total_users)
                 col2.metric("Total Queries", total_queries)
@@ -1207,7 +1363,8 @@ def show_email_segments_view():
 
                 if st.button("Generate CSV Download", key="generate_profiles_csv"):
                     with st.spinner("Preparing user profiles CSV..."):
-                        profiles_csv_df = create_user_profiles_csv(profiles_data)
+                        profiles_csv_df = create_user_profiles_csv(
+                            profiles_data)
 
                         # Show preview
                         st.write("Preview of CSV data:")
@@ -1246,7 +1403,7 @@ def show_email_segments_view():
                     avg_scores.items(), key=lambda x: x[1], reverse=True)
 
                 categories_df = pd.DataFrame(sorted_categories, columns=[
-                                            'Category', 'Average Score'])
+                    'Category', 'Average Score'])
 
                 fig = px.bar(
                     categories_df,
@@ -1256,7 +1413,6 @@ def show_email_segments_view():
                     title='Average Category Interest Scores'
                 )
                 st.plotly_chart(fig)
-
 
             elif profile_analysis_type == "User Details":
                 user_emails = list(profiles_data.keys())
@@ -1268,7 +1424,8 @@ def show_email_segments_view():
                     st.subheader(f"Profile for: {selected_user}")
 
                     col1, col2 = st.columns(2)
-                    col1.metric("Total Queries", user_data.get('total_queries', 0))
+                    col1.metric("Total Queries",
+                                user_data.get('total_queries', 0))
                     col2.metric("Analyzed Queries",
                                 user_data.get('analysed_queries', 0))
 
@@ -1303,24 +1460,6 @@ def show_email_segments_view():
                         st.subheader("Recent Queries")
                         for query in user_data['recent_queries'][:10]:  # Show first 10
                             st.write(f"• {query}")
-
-
-    st.subheader("Field Analysis")
-    auth0_df = st.session_state.get('auth0')
-    if auth0_df is not None and not auth0_df.empty:
-        all_fields = sorted(auth0_df.columns.tolist())
-        selected_field = st.selectbox(
-            "Select a field to analyze:", all_fields
-        )
-        if selected_field and selected_field in auth0_df.columns:
-            with st.spinner(f"Analyzing {selected_field}..."):
-                analyze_field(auth0_df, selected_field)
-        elif selected_field:
-            st.error(
-                f"Field '{selected_field}' not found in the data. The data structure may have changed.")
-    else:
-        st.info("No data available for field analysis. Click 'Fetch All Data and Analyze'.")
-
 
 
 def create_user_profiles_csv(profiles_data):
