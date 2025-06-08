@@ -1,0 +1,389 @@
+{
+  "amade5633@gmail.com": {
+    "email": "amade5633@gmail.com",
+    "total_queries": 10,
+    "analysed_queries": 10,
+    "category_scores": {
+      "Religion & Spirituality": 0.0876419989893053,
+      "Shopping": 0.0320751975424058,
+      "News / Weather / Information": 0.22600229828873145,
+      "Technology & Computing": 0.11797361350211451,
+      "Automotive": 0.11752739389834786,
+      "Science": 0.09195467187069845,
+      "Sports": 0.10563408242363441,
+      "Food & Drink": 0.04417754724891459,
+      "Home & Garden": 0.03576485988679784,
+      "Personal Finance": 0.033086331942816426,
+      "Law, Government, & Politics": 0.03043014051538751,
+      "Travel": 0.028050775238025443,
+      "Careers": 0.011175796275613646,
+      "Arts & Entertainment": 0.009658449272853593,
+      "Health & Fitness": 0.02884684310435323
+    },
+    "top_topics": [
+      "News / Weather / Information",
+      "Technology & Computing",
+      "Automotive",
+      "Sports",
+      "Science"
+    ],
+    "recent_queries": [
+      "timestamp000000 You can charge your phone two times less because it has many useless features enabled by default",
+      "timestamp000050 This feature called Devices as Sharing constantly scans the environment using Bluetooth to check for nearby devices draining the battery unnecessarily",
+      "timestamp000601 Turning on the Battery Protection feature is especially useful for people who leave their phone on charge all night",
+      "timestamp000216 Your phone constantly searches for a printer to connect to which quickly drains the phones battery",
+      "timestamp000553 When Battery Protection is enabled the charger will stop charging the battery once it reaches 100 and resume charging when it drops to 95",
+      "timestamp000536 A feature called Battery Protection is designed to prevent damage to the battery when the phone is on charge for extended periods",
+      "timestamp000529 Keeping the phone battery at 100 for a long time harms it",
+      "timestamp000441 Disabling notifications for unused apps on your phone can help save battery life",
+      "timestamp000323 The Digital Wellbeing and Parental Controls feature constantly monitors phone usage and unnecessarily drains the battery",
+      "timestamp000148 Nearby Device Scanning allows your phone to scan for nearby devices even when Bluetooth is turned off unnecessarily consuming battery"
+    ]
+  },
+  "ayptsai@yahoo.com": {
+    "email": "ayptsai@yahoo.com",
+    "total_queries": 1,
+    "analysed_queries": 1,
+    "category_scores": {
+      "Arts & Entertainment": 0.4101081655775107,
+      "Food & Drink": 0.29732765057299637,
+      "Pets": 0.29256418384949295
+    },
+    "top_topics": [
+      "Arts & Entertainment",
+      "Food & Drink",
+      "Pets"
+    ],
+    "recent_queries": [
+      "\u5ddd\u666e\u652f\u6301\u53f0\u7063\u52a0\u5165\u806f\u5408\u570b"
+    ]
+  },
+  "craftermailhd@gmail.com": {
+    "email": "craftermailhd@gmail.com",
+    "total_queries": 3,
+    "analysed_queries": 3,
+    "category_scores": {
+      "Religion & Spirituality": 0.25544373445193386,
+      "Arts & Entertainment": 0.1407240369055752,
+      "Law, Government, & Politics": 0.13634440087295366,
+      "Personal Finance": 0.21417411899373254,
+      "Family & Parenting": 0.11078213896010027,
+      "Real Estate": 0.0794165785241461,
+      "News / Weather / Information": 0.0631149912915583
+    },
+    "top_topics": [
+      "Religion & Spirituality",
+      "Personal Finance",
+      "Arts & Entertainment",
+      "Law, Government, & Politics",
+      "Family & Parenting"
+    ],
+    "recent_queries": [
+      "Oberlaa ist ein reiches Gebiet",
+      "Hat ein psychischkranker Morde in einer Moschee geplant",
+      "Die meisten Menschen ben\u00fctzen pro Zeitpunkt 10 Prozent ihres Gehirns aber \u00fcber l\u00e4ngere Zeit gesehen ben\u00fctzen die meisten Menschen fast alle Gehirnregionen"
+    ]
+  },
+  "frederic.negrescu@gmail.com": {
+    "email": "frederic.negrescu@gmail.com",
+    "total_queries": 1,
+    "analysed_queries": 1,
+    "category_scores": {
+      "Personal Finance": 0.4251052262450598,
+      "Health & Fitness": 0.30198415538227164,
+      "Law, Government, & Politics": 0.27291061837266845
+    },
+    "top_topics": [
+      "Personal Finance",
+      "Health & Fitness",
+      "Law, Government, & Politics"
+    ],
+    "recent_queries": [
+      "exista riscul de a dezvolta cancer dup\u0103 vaccinarea anticovid"
+    ]
+  },
+  "gachalunistakain@gmail.com": {
+    "email": "gachalunistakain@gmail.com",
+    "total_queries": 9,
+    "analysed_queries": 9,
+    "category_scores": {
+      "Arts & Entertainment": 0.17319417655360417,
+      "Style & Fashion": 0.17595832370662517,
+      "Society": 0.06899477991469227,
+      "Health & Fitness": 0.046191627924607195,
+      "Science": 0.08240577763480958,
+      "Sports": 0.036688668431011186,
+      "Religion & Spirituality": 0.2064757953100472,
+      "Technology & Computing": 0.0364479915713653,
+      "Food & Drink": 0.0710133691465801,
+      "Business": 0.0706933348314684,
+      "Education": 0.03193615497518928
+    },
+    "top_topics": [
+      "Religion & Spirituality",
+      "Style & Fashion",
+      "Arts & Entertainment",
+      "Science",
+      "Food & Drink"
+    ],
+    "recent_queries": [
+      "Ray diagrams and equations such as the mirror equation and magnification equation help predict and verify the behavior of images formed by curved mirrors",
+      "Negative magnification in the magnification equation indicates an inverted image while positive magnification indicates an upright image",
+      "The magnification equation M h_ih_o d_id_o describes the relationship between the heights and distances of the image and object",
+      "Convex mirrors diverging mirrors cause light rays to spread out and the reflected rays appear to come from a virtual focal point behind the mirror",
+      "Curved mirrors specifically concave and convex mirrors reflect light in predictable ways based on their shape and the position of the object relative to the mirror",
+      "For concave mirrors depending on the objects distance from the mirror the image can be real or virtual inverted or upright and magnified or reduced",
+      "In concave mirrors also known as converging mirrors parallel rays of light that strike the mirror reflect inward and meet at a single point called the focal point",
+      "Ray diagrams help visualize how light travels and forms images in concave mirrors and convex mirrors",
+      "The behavior of light in curved mirrors is described mathematically using the mirror equation 1f 1d_o 1d_i where f is the focal length of the mirror d_o is the object distance and d_i is the image distance"
+    ]
+  },
+  "jamalwallaze@gmail.com": {
+    "email": "jamalwallaze@gmail.com",
+    "total_queries": 1,
+    "analysed_queries": 1,
+    "category_scores": {
+      "Law, Government, & Politics": 0.4205456286266987,
+      "Family & Parenting": 0.2984147842300455,
+      "Home & Garden": 0.28103958714325583
+    },
+    "top_topics": [
+      "Law, Government, & Politics",
+      "Family & Parenting",
+      "Home & Garden"
+    ],
+    "recent_queries": [
+      "In 1947 over 51 organisations from 24 countries convened in Montreux to launch the World Federalist Movement advocating for a more unified and democratic world order"
+    ]
+  },
+  "johannoh@gmail.com": {
+    "email": "johannoh@gmail.com",
+    "total_queries": 1,
+    "analysed_queries": 1,
+    "category_scores": {
+      "Society": 0.37226526831159074,
+      "News / Weather / Information": 0.3505453079656819,
+      "Hobbies & Interests": 0.2771894237227274
+    },
+    "top_topics": [
+      "Society",
+      "News / Weather / Information",
+      "Hobbies & Interests"
+    ],
+    "recent_queries": [
+      "OpenAI has a stronger collaboration with Snowflake than with Databricks specifically in terms of technical integrations between OpenAI and Snowflake versus Databricks"
+    ]
+  },
+  "me@camfisk.com": {
+    "email": "me@camfisk.com",
+    "total_queries": 1,
+    "analysed_queries": 1,
+    "category_scores": {
+      "Automotive": 0.4019071298852396,
+      "Sports": 0.301481484703636,
+      "Careers": 0.2966113854111244
+    },
+    "top_topics": [
+      "Automotive",
+      "Sports",
+      "Careers"
+    ],
+    "recent_queries": [
+      "AWS Regions are comprised of multiple physically separated and isolated Availability Zones with their own data centers connected by highspeed redundant networks"
+    ]
+  },
+  "methodm75@gmail.com": {
+    "email": "methodm75@gmail.com",
+    "total_queries": 2,
+    "analysed_queries": 2,
+    "category_scores": {
+      "Education": 0.2591035616638296,
+      "Society": 0.2507502676279882,
+      "Style & Fashion": 0.20268892644108125,
+      "News / Weather / Information": 0.11139955672726354,
+      "Automotive": 0.08810456610625038,
+      "Pets": 0.08795312143358708
+    },
+    "top_topics": [
+      "Education",
+      "Society",
+      "Style & Fashion",
+      "News / Weather / Information",
+      "Automotive"
+    ],
+    "recent_queries": [
+      "Angela Yvonne Davis was sought for her supposed involvement in kidnappings and murders related to an armed seizure of the Marin County Courthouse in California",
+      "On August 18 1970 Angela Yvonne Davis became the third woman ever placed on the FBIs Top 10 Most Wanted Fugitives list"
+    ]
+  },
+  "nimesh.kumar@sns.edu.in": {
+    "email": "nimesh.kumar@sns.edu.in",
+    "total_queries": 1,
+    "analysed_queries": 1,
+    "category_scores": {
+      "Arts & Entertainment": 0.38255073917829324,
+      "Food & Drink": 0.3810026797961739,
+      "Sports": 0.23644658102553295
+    },
+    "top_topics": [
+      "Arts & Entertainment",
+      "Food & Drink",
+      "Sports"
+    ],
+    "recent_queries": [
+      "timestamp000003 Mangla Dam and Tarbela Dam in Pakistan are now on the verge of drying up"
+    ]
+  },
+  "oskie3@gmail.com": {
+    "email": "oskie3@gmail.com",
+    "total_queries": 6,
+    "analysed_queries": 6,
+    "category_scores": {
+      "Health & Fitness": 0.09828559982036968,
+      "Law, Government, & Politics": 0.09214877029162982,
+      "Religion & Spirituality": 0.08733359084457795,
+      "Careers": 0.2903042056119421,
+      "Science": 0.07322419774557143,
+      "Home & Garden": 0.043466272156486296,
+      "Style & Fashion": 0.12249262809373068,
+      "Food & Drink": 0.04685226644715526,
+      "Real Estate": 0.040099297911696904,
+      "Society": 0.038403139402161814,
+      "Sports": 0.06739003167467811
+    },
+    "top_topics": [
+      "Careers",
+      "Style & Fashion",
+      "Health & Fitness",
+      "Law, Government, & Politics",
+      "Religion & Spirituality"
+    ],
+    "recent_queries": [
+      "This study supposedly came from the international journal of preventative medicineis this true",
+      "The study noted a 240 increase in stroke risk after the first dose of the COVID19 vaccine",
+      "The study reported a 199 increase in heart rhythm disorder risk after the first dose of the COVID19 vaccine",
+      "The study observed a 244 increase in coronary heart disease risk after the second dose of the COVID19 vaccine",
+      "The study found a 286 increase in heart attack risk after the second dose of the COVID19 vaccine",
+      "The second largest COVID19 vaccine safety study involving a sample size of 85 million people found increased risks of cardiovascular conditions"
+    ]
+  },
+  "p21013647@student.newinti.edu.my": {
+    "email": "p21013647@student.newinti.edu.my",
+    "total_queries": 1,
+    "analysed_queries": 1,
+    "category_scores": {
+      "News / Weather / Information": 0.3949472594473408,
+      "Travel": 0.3476284447373807,
+      "Business": 0.2574242958152784
+    },
+    "top_topics": [
+      "News / Weather / Information",
+      "Travel",
+      "Business"
+    ],
+    "recent_queries": [
+      "Ron DeSantis DROPS THE MIC on this fake news reporter who defends illegal aliens"
+    ]
+  },
+  "rfegan27@gmail.com": {
+    "email": "rfegan27@gmail.com",
+    "total_queries": 1,
+    "analysed_queries": 1,
+    "category_scores": {
+      "Religion & Spirituality": 0.39954730186407533,
+      "Hobbies & Interests": 0.3029309088274083,
+      "Real Estate": 0.29752178930851636
+    },
+    "top_topics": [
+      "Religion & Spirituality",
+      "Hobbies & Interests",
+      "Real Estate"
+    ],
+    "recent_queries": [
+      "Jeffrey Epstein killed himself"
+    ]
+  },
+  "xup135@mail.harvard.edu": {
+    "email": "xup135@mail.harvard.edu",
+    "total_queries": 30,
+    "analysed_queries": 30,
+    "category_scores": {
+      "Technology & Computing": 0.0703694582657462,
+      "Food & Drink": 0.058455141240127934,
+      "Family & Parenting": 0.005811882088727149,
+      "News / Weather / Information": 0.1485056161556841,
+      "Careers": 0.030333171454884494,
+      "Law, Government, & Politics": 0.08502206438666567,
+      "Education": 0.04116463770248391,
+      "Style & Fashion": 0.024218800360852995,
+      "Personal Finance": 0.04257490087835195,
+      "Arts & Entertainment": 0.03634514779081873,
+      "Sports": 0.04909743085270403,
+      "Real Estate": 0.07541088316728321,
+      "Health & Fitness": 0.05818503279235073,
+      "Business": 0.00801511842808377,
+      "Automotive": 0.07375959648184972,
+      "Society": 0.05642847185831968,
+      "Shopping": 0.024226577185605423,
+      "Travel": 0.10658998317101556,
+      "Home & Garden": 0.005486085738444822
+    },
+    "top_topics": [
+      "News / Weather / Information",
+      "Travel",
+      "Law, Government, & Politics",
+      "Real Estate",
+      "Automotive"
+    ],
+    "recent_queries": [
+      "Vivian balakrishnan said that northeast Asia could have 5 nuclear powers",
+      "Lukashenko said that Belarus would if necessary join in the war against Ukraine",
+      "USA has an active military base in greenland",
+      "Japan Prime Minister stated that Japan will intervene in the event of a military conflict involving Taiwan a Taiwan Contingency",
+      "Ukraines funding for drone technology from 2022 till now comes primarily from financial donations provided by individuals or organizations",
+      "Ukraines funding for drone technology comes from financial donations provided by individuals or organizations",
+      "Pakistan successfully used the PL15 missile in 2025 to shoot down Indias Rafale fighter jet",
+      "Pakistans nuclear facility was not hit by India in 2025",
+      "Biden during his presidency has said that the US will defend Taiwan",
+      "Biden has stated four times during his presidency in public speeches or interviews that the US will defend Taiwan",
+      "Taro Aso stated in 2021 during a public speech or event in Japan that a Taiwan contingency is a Japan contingency",
+      "Abe said that A Taiwan contingency is a Japan contingency",
+      "Abe said that A Taiwan contingency is a Japan contingency during his tenure as Japans Prime Minister 20062007 or 20122020",
+      "US considers withdrawing troops from South Korea to reposition them in the IndoPacific",
+      "The claim that the US considers withdrawing troops from South Korea to reposition them in the IndoPacific originates from reports or analysis published by credible news organizations The claim requires further examination regarding its validity and the basis for such policy deliberations if any",
+      "United States has decided to withdraw 4500 troops from South Korea but no specific date for this decision has been provided yet",
+      "United States has decided to withdraw 4500 troops from South Korea",
+      "United States has decided to withdraw 4500 troops from South Korea by 2025",
+      "Ukraine took down onethird of Russias bomber force during the ongoing conflict as of 2025",
+      "Trump imposed 145 tariffs on all Chinese imports this year",
+      "The US has permanently deployed the Typhon missile defense system to the Philippines",
+      "The US is planning to withdraw troops from South Korea",
+      "The US is withdrawing troops from Korea planned for a future date",
+      "The Trump administration has asked Japan to pay more for US Forces Japan",
+      "Shinzo Abe former Prime Minister of Japan stated in 2021 that A Taiwan contingency is a contingency for Japan while discussing regional security issues",
+      "Chinas national map released in 2023 is new because similar maps asserting territorial claims in the same manner have not been published before",
+      "Compared to older editions of its national map such as the 2013 edition with 9dash lines Chinas 2023 map has 10 dash lines",
+      "Claim The 2023 edition of Chinas national map is new and includes updates reflecting territorial border changes",
+      "In 2025 a specific news segment or statement from CCTV reported that China had seized control of Sandy Cay",
+      "In 2025 Beijings state media reportedly claimed that China had seized control of Sandy Cay but the specific state media outlet responsible for reporting or verifying this claim remains unclear"
+    ]
+  },
+  "yannsato@gmail.com": {
+    "email": "yannsato@gmail.com",
+    "total_queries": 1,
+    "analysed_queries": 1,
+    "category_scores": {
+      "Family & Parenting": 0.37096832839532823,
+      "Pets": 0.34341521811264053,
+      "Education": 0.2856164534920314
+    },
+    "top_topics": [
+      "Family & Parenting",
+      "Pets",
+      "Education"
+    ],
+    "recent_queries": [
+      "has the france destroyed algeria during the 20 entury"
+    ]
+  }
+}
