@@ -341,6 +341,14 @@ def aggregate_auth0_quarterly(auth0_df, window_start, window_end):
             return f"Dec {year}-Feb {year+1}"
         elif month in [1, 2]:
             return f"Dec {year-1}-Feb {year}"
+        elif month in [3, 4, 5]:
+            return f"Mar-May {year}"
+        elif month in [6, 7, 8]:
+            return f"June-Aug {year}"
+        elif month in [9, 10, 11]:
+            return f"Sep-Nov {year}"
+        elif month == 12:
+            return f"Dec {year}-Feb {year+1}"
         return None
 
     # Assign quarters and filter out months without a valid label
