@@ -191,7 +191,7 @@ def aggregate_daily_with_users(start_date, end_date, exclude_blacklisted=False, 
 def aggregate_daily_by_url(start_date, end_date, exclude_blacklisted=False, db_string=DB_CONNECTION_STRING):
     """
     Aggregates query counts per requester_url by day.
-    Missing or null requester_url values will be replaced with "?".
+    Missing or null requester_url values will be replaced with "writer".
     
     Returns:
         list: [
@@ -208,7 +208,7 @@ def aggregate_daily_by_url(start_date, end_date, exclude_blacklisted=False, db_s
     """
     collection = get_db_connection(db_string)
 
-    # Ensure timestamp exists and convert missing requester_url to "?"
+    # Ensure timestamp exists and convert missing requester_url to "writer"
     match_condition = {
         "timestamp": {"$gte": start_date, "$lt": end_date}
     }
@@ -231,7 +231,7 @@ def aggregate_daily_by_url(start_date, end_date, exclude_blacklisted=False, db_s
                     "date": {"$toDate": "$timestamp"}
                 }
             },
-            # Use $ifNull to substitute missing requester_url with "?"
+            # Use $ifNull to substitute missing requester_url with "writer"
             "url": {
                 "$ifNull": ["$requester_url", "writer"]
             }
@@ -263,7 +263,7 @@ def aggregate_daily_users_by_url(start_date, end_date, exclude_blacklisted=False
     """
     Aggregates distinct userEmails per requester_url by day.
     Empty userEmails (non-logged in users) are counted as 'anonymous_user'.
-    Missing or null requester_url values will be replaced with "?".
+    Missing or null requester_url values will be replaced with "writer".
     The same user accessing different URLs will be counted once per URL.
     
     Returns:
@@ -306,9 +306,9 @@ def aggregate_daily_users_by_url(start_date, end_date, exclude_blacklisted=False
                     "date": {"$toDate": "$timestamp"}
                 }
             },
-            # Use $ifNull to substitute missing requester_url with "?"
+            # Use $ifNull to substitute missing requester_url with "writer"
             "url": {
-                "$ifNull": ["$requester_url", "?"]
+                "$ifNull": ["$requester_url", "writer"]
             },
             # Handle empty userEmail by using a special identifier for anonymous users
             "userIdentifier": {
