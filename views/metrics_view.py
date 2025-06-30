@@ -86,7 +86,7 @@ def show_metrics_view():
 
         # Normalize URLs: remove trailing slashes and map them together
         def normalize_url(url):
-            return url.rstrip("/") if url else "?"
+            return url.rstrip("/") if url else "writer"
 
         # Build normalized URL counts per day
         normalized_breakdown = []
@@ -121,7 +121,7 @@ def show_metrics_view():
 
         # Custom color map to ensure API is green_1
         color_map = {"API": green_1, "chrome-extension://mlackneplpmmomaobipjjpebhgcgmocp/sidebar.html": MODERN_ORANGE,
-                     "https://app.facticity.ai": LIGHT_BLUE, "?": PRIMARY_BLUE}
+                     "https://app.facticity.ai": LIGHT_BLUE, "writer": PRIMARY_BLUE}
 
         # Generate the chart with custom colors
         generate_url_breakdown_chart(
