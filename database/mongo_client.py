@@ -199,7 +199,7 @@ def aggregate_daily_by_url(start_date, end_date, exclude_blacklisted=False, db_s
                 "_id": "2025-04-20",
                 "urls": {
                     "https://app.facticity.ai/": 10,
-                    "?": 3,
+                    "writer": 3,
                     ...
                 }
             },
@@ -233,7 +233,7 @@ def aggregate_daily_by_url(start_date, end_date, exclude_blacklisted=False, db_s
             },
             # Use $ifNull to substitute missing requester_url with "?"
             "url": {
-                "$ifNull": ["$requester_url", "?"]
+                "$ifNull": ["$requester_url", "writer"]
             }
         }},
         {"$group": {
@@ -272,7 +272,7 @@ def aggregate_daily_users_by_url(start_date, end_date, exclude_blacklisted=False
                 "_id": "2025-04-20",
                 "urls": {
                     "https://app.facticity.ai/": 5,  # 5 distinct users
-                    "?": 2,  # 2 distinct users
+                    "writer": 2,  # 2 distinct users
                     ...
                 }
             },
