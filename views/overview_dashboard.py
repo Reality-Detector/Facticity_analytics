@@ -25,7 +25,7 @@ from services.analytics import get_active_users
 
 from utils.chart_utils import generate_chart, generate_url_breakdown_chart, generate_user_breakdown_chart
 
-from config import PRIMARY_BLUE, LIGHT_BLUE, MODERN_ORANGE, API_DB_CONNECTION_STRING, green_1
+from config import PRIMARY_BLUE, LIGHT_BLUE, MODERN_ORANGE, API_DB_CONNECTION_STRING, green_1, blue_5
 
 
 def show_overview_view():
@@ -153,7 +153,7 @@ def show_overview_view():
         }
 
         # Custom color map to ensure API is GREEN_1
-        color_map = {"API": green_1, "chrome-extension://mlackneplpmmomaobipjjpebhgcgmocp/sidebar.html":MODERN_ORANGE, "https://app.facticity.ai":LIGHT_BLUE, "writer": PRIMARY_BLUE}
+        color_map = {"API": green_1, "chrome-extension://mlackneplpmmomaobipjjpebhgcgmocp/sidebar.html":MODERN_ORANGE, "https://app.facticity.ai":LIGHT_BLUE, "writer": blue_5}
 
         # Generate the chart with custom colors
         generate_url_breakdown_chart(
