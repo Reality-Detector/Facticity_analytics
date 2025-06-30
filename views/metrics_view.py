@@ -29,7 +29,7 @@ from utils.chart_utils import (
 
 from utils.date_utils import quarter_sort_key
 
-from config import API_DB_CONNECTION_STRING, PRIMARY_BLUE, LIGHT_BLUE, MODERN_ORANGE, green_1
+from config import API_DB_CONNECTION_STRING, PRIMARY_BLUE, LIGHT_BLUE, MODERN_ORANGE, green_1, blue_5
 
 
 def show_metrics_view():
@@ -121,7 +121,7 @@ def show_metrics_view():
 
         # Custom color map to ensure API is green_1
         color_map = {"API": green_1, "chrome-extension://mlackneplpmmomaobipjjpebhgcgmocp/sidebar.html": MODERN_ORANGE,
-                     "https://app.facticity.ai": LIGHT_BLUE, "writer": PRIMARY_BLUE}
+                     "https://app.facticity.ai": LIGHT_BLUE, "writer": blue_5}
 
         # Generate the chart with custom colors
         generate_url_breakdown_chart(
