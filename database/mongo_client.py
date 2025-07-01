@@ -505,26 +505,31 @@ def aggregate_quarterly_with_users(start_date, end_date, exclude_blacklisted=Fal
         {"$addFields": {
             "label": {
                 "$switch": {
-                    "branches": [
-                        {
-                            "case": {"$and": [{"$gte": ["$month", 6]}, {"$lte": ["$month", 8]}]},
-                            "then": {"$concat": ["June-Aug ", {"$toString": "$year"}]}
-                        },
-                        {
-                            "case": {"$and": [{"$gte": ["$month", 9]}, {"$lte": ["$month", 11]}]},
-                            "then": {"$concat": ["Sep-Nov ", {"$toString": "$year"}]}
-                        },
-                        {
-                            "case": {"$eq": ["$month", 12]},
-                            "then": {"$concat": ["Dec ", {"$toString": "$year"}, "-Feb ", {"$toString": {"$add": ["$year", 1]}}]}
-                        },
-                        {
-                            "case": {"$lte": ["$month", 2]},
-                            "then": {"$concat": ["Dec ", {"$toString": {"$subtract": ["$year", 1]}}, "-Feb ", {"$toString": "$year"}]}
-                        }
-                    ],
-                    "default": "Other"
-                }
+        "branches": [
+            {
+                "case": {"$and": [{"$gte": ["$month", 3]}, {"$lte": ["$month", 5]}]},
+                "then": {"$concat": ["Mar-May ", {"$toString": "$year"}]}
+            },
+            {
+                "case": {"$and": [{"$gte": ["$month", 6]}, {"$lte": ["$month", 8]}]},
+                "then": {"$concat": ["June-Aug ", {"$toString": "$year"}]}
+            },
+            {
+                "case": {"$and": [{"$gte": ["$month", 9]}, {"$lte": ["$month", 11]}]},
+                "then": {"$concat": ["Sep-Nov ", {"$toString": "$year"}]}
+            },
+            {
+                "case": {"$eq": ["$month", 12]},
+                "then": {"$concat": ["Dec ", {"$toString": "$year"}, "-Feb ", {"$toString": {"$add": ["$year", 1]}}]}
+            },
+            {
+                "case": {"$lte": ["$month", 2]},
+                "then": {"$concat": ["Dec ", {"$toString": {"$subtract": ["$year", 1]}}, "-Feb ", {"$toString": "$year"}]}
+            }
+        ],
+    "default": "Other"
+}
+
             }
         }},
         {"$match": {"label": {"$nin": ["Other"]}}},
