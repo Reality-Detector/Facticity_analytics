@@ -4,8 +4,9 @@ Metrics dashboard view for the Facticity application.
 from collections import defaultdict
 import streamlit as st
 import pandas as pd
-from datetime import timedelta
+from datetime import timedelta, datetime
 from pymongo import MongoClient
+import altair as alt
 
 from database.mongo_client import (
     aggregate_daily_with_users,
@@ -31,6 +32,7 @@ from utils.chart_utils import (
 from utils.date_utils import quarter_sort_key
 
 from config import API_DB_CONNECTION_STRING, PRIMARY_BLUE, LIGHT_BLUE, MODERN_ORANGE, green_1, blue_5
+from config import DB_CONNECTION_STRING
 
 
 def show_metrics_view():
@@ -269,7 +271,7 @@ def show_metrics_view():
     st.subheader("📈 Game Participation Over Time")
 
     # Connect to MongoDB (reuse or import your existing connection string)
-    game_client = MongoClient("mongodb+srv://AISeerMongoAtlas:JNPuyiL0i0Hf6B60@cluster0.fwmwa.mongodb.net/facticity?retryWrites=true&w=majority&appName=Cluster0")
+    game_client = MongoClient(DB_CONNECTION_STRING)
     game_db = game_client["facticity"]
     game_collection = game_db["gamefile"]
 
@@ -299,3 +301,58 @@ def show_metrics_view():
 
     # Plot using Streamlit chart
     st.line_chart(df_players.set_index("date"), use_container_width=True)
+    # ------------------------------------------------
+    # Discover Posts Activity: New Posts per Day (14d)
+    # ------------------------------------------------
+    st.subheader("📰 New Discover Posts Per Day (Last 14 Days)")
+
+    discover_client = MongoClient(DB_CONNECTION_STRING)
+    discover_db = discover_client["facticity"]
+    posts_collection = discover_db["discover_posts"]
+
+
+    def get_recent_discover_posts(days=14):
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        pipeline = [
+            {
+                "$match": {
+                    "publish_timestamp": {"$gte": cutoff_date}
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": "$publish_timestamp"
+                        }
+                    },
+                    "count": {"$sum": 1}
+                }
+            },
+            {
+                "$sort": {"_id": 1}
+            }
+        ]
+        result = list(posts_collection.aggregate(pipeline))
+        if not result:
+            return pd.DataFrame(columns=["date", "posts"])
+        return pd.DataFrame({
+            "date": [r["_id"] for r in result],
+            "posts": [r["count"] for r in result]
+        })
+
+    df_posts = get_recent_discover_posts()
+
+    if not df_posts.empty:
+
+        df_posts['date'] = pd.to_datetime(df_posts['date'])
+
+        # Set the date as index for proper plotting
+        df = df_posts.set_index('date')
+
+        # Use Streamlit's built-in line chart
+        st.line_chart(df['posts'], use_container_width=True)
+    else:
+
+        st.write("No discover post activity in the last 14 days.")
