@@ -5,6 +5,7 @@ from collections import defaultdict
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
+from pymongo import MongoClient
 
 from database.mongo_client import (
     aggregate_daily_with_users,
@@ -260,3 +261,41 @@ def show_metrics_view():
         st.metric("Total Queries since July", total_monthly_queries)
     with col3:
         st.metric("Total Users since July", total_users)
+    # ---------------------------
+    # Game Players Per Day Chart
+    # ---------------------------
+    # from pymongo import MongoClient
+
+    st.subheader("📈 Game Participation Over Time")
+
+    # Connect to MongoDB (reuse or import your existing connection string)
+    game_client = MongoClient("mongodb+srv://AISeerMongoAtlas:JNPuyiL0i0Hf6B60@cluster0.fwmwa.mongodb.net/facticity?retryWrites=true&w=majority&appName=Cluster0")
+    game_db = game_client["facticity"]
+    game_collection = game_db["gamefile"]
+
+    # Dictionary: {date → set of player emails}
+    # from collections import defaultdict
+    # import pandas as pd
+
+    players_per_day = defaultdict(set)
+
+    for doc in game_collection.find({"player_results": {"$exists": True}}):
+        timestamp = doc.get("timestamp")
+        if not timestamp:
+            continue
+        date = pd.to_datetime(timestamp).date()
+
+        for result in doc.get("player_results", []):
+            email = result.get("email")
+            if email:
+                players_per_day[date].add(email)
+
+    # Convert to sorted DataFrame
+    data = {
+        "date": sorted(players_per_day.keys()),
+        "unique_players": [len(players_per_day[dt]) for dt in sorted(players_per_day.keys())]
+    }
+    df_players = pd.DataFrame(data)
+
+    # Plot using Streamlit chart
+    st.line_chart(df_players.set_index("date"), use_container_width=True)
