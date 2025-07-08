@@ -6,7 +6,6 @@ import streamlit as st
 import pandas as pd
 from datetime import timedelta, datetime
 from pymongo import MongoClient
-import altair as alt
 
 from database.mongo_client import (
     aggregate_daily_with_users,
