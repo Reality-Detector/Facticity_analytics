@@ -14,12 +14,39 @@ from config import DB_CONNECTION_STRING
 
 from database.mongo_client import get_db_connection, is_valid_user, fetch_all_emails_with_timestamps
 from database.auth0_client import get_auth0_user_list
-from services.analytics import get_active_users, calculate_retention_rate
+from services.analytics import get_active_users, calculate_retention_rate, get_active_users_custom
 
 client = MongoClient(DB_CONNECTION_STRING)
 db = client["facticity"]
 gamef = db["gamefile"]
 discover_collection = db["discover_posts"]
+def get_unique_discover_emails(collection, days=1):
+    now = datetime.now(timezone.utc)
+    past = now - timedelta(days=days)
+
+    recent_posts = collection.find({
+        "publish_timestamp": {"$gte": past},
+        "user_email": {"$exists": True, "$ne": ""}
+    })
+
+    return sorted({post["user_email"] for post in recent_posts})
+
+
+def get_unique_game_emails(collection, days=1):
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    cursor = collection.find(
+        {"timestamp": {"$gte": since}},
+        {"player_results": 1}
+    )
+
+    emails = set()
+    for doc in cursor:
+        for player in doc.get("player_results", []):
+            email = player.get("email")
+            if email:
+                emails.add(email)
+    return sorted(emails)
 def get_unique_discover_posters(collection, days=1):
     now = datetime.now(timezone.utc)
     past = now - timedelta(days=days)
@@ -436,3 +463,33 @@ def show_user_activity_view():
                 st.write("No valid users found for cohort analysis.")
         else:
             st.write("No data available for cohort analysis.")
+
+        st.subheader("📩 Download User Emails Separately (Game | Discover | Active)")
+
+        days = st.slider("Select timeframe (days)", 1, 90, 7)
+
+        game_emails = get_unique_game_emails(gamef, days)
+        discover_emails = get_unique_discover_emails(discover_collection, days)
+        active_emails = sorted(get_active_users_custom(days))
+
+        max_len = max(len(game_emails), len(discover_emails), len(active_emails))
+
+        # Pad shorter lists with empty strings
+        game_emails += [""] * (max_len - len(game_emails))
+        discover_emails += [""] * (max_len - len(discover_emails))
+        active_emails += [""] * (max_len - len(active_emails))
+
+        df = pd.DataFrame({
+            "game_user_email": game_emails,
+            "discover_user_email": discover_emails,
+            "active_user_email": active_emails
+        })
+
+        st.dataframe(df)
+
+        st.download_button(
+            "⬇️ Download CSV",
+            data=df.to_csv(index=False),
+            file_name=f"user_emails_{days}_days.csv",
+            mime="text/csv"
+        )
