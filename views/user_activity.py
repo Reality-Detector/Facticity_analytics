@@ -9,10 +9,49 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, timezone
 from wordcloud import WordCloud
+from pymongo import MongoClient
+from config import DB_CONNECTION_STRING
 
 from database.mongo_client import get_db_connection, is_valid_user, fetch_all_emails_with_timestamps
 from database.auth0_client import get_auth0_user_list
 from services.analytics import get_active_users, calculate_retention_rate
+
+client = MongoClient(DB_CONNECTION_STRING)
+db = client["facticity"]
+gamef = db["gamefile"]
+discover_collection = db["discover_posts"]
+def get_unique_discover_posters(collection, days=1):
+    now = datetime.now(timezone.utc)
+    past = now - timedelta(days=days)
+
+    # Filter documents within time range
+    recent_posts = collection.find({
+        "publish_timestamp": {"$gte": past},
+        "user_email": {"$exists": True, "$ne": ""}
+    })
+
+    # Collect unique emails
+    unique_users = set()
+    for post in recent_posts:
+        unique_users.add(post["user_email"])
+
+    return len(unique_users)
+
+def get_game_player_counts(collection, days: int) -> int:
+    """Count total players from player_results in the past `days`."""
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    cursor = collection.find(
+        {"timestamp": {"$gte": since}},
+        {"player_results": 1}
+    )
+
+    total_players = 0
+    for doc in cursor:
+        player_results = doc.get("player_results", [])
+        total_players += len(player_results)
+
+    return total_players
 
 
 def show_user_activity_view():
@@ -173,6 +212,51 @@ def show_user_activity_view():
         with col3:
             st.metric("Monthly Active Users (last 30d)",
                       len(monthly_active_users))
+    # === New Section for Game and Discover Posting Active Users ===
+   
+
+    def get_module_activity_users(collection, module_name: str, days: int):
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+        match_stage = {
+            "timestamp": {"$gte": since.isoformat()},
+            "userEmail": {"$ne": None},
+            "module": module_name
+        }
+
+        pipeline = [
+            {"$match": match_stage},
+            {"$group": {"_id": "$userEmail"}}
+        ]
+
+        result = list(collection.aggregate(pipeline))
+        valid_users = [r["_id"] for r in result if not exclude_blacklisted or is_valid_user(r["_id"])]
+        return len(set(valid_users))
+
+    with st.spinner("Calculating engagement per module..."):
+
+        st.subheader("Game & Discover Engagement")
+        daily_game_players = get_game_player_counts(gamef, 1)
+        weekly_game_players = get_game_player_counts(gamef, 7)
+        monthly_game_players = get_game_player_counts(gamef, 30)
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Game Daily", daily_game_players)
+        with col2:
+            st.metric("Game Weekly", weekly_game_players)
+        with col3:
+            st.metric("Game Monthly", monthly_game_players)
+        daily_discover_posters = get_unique_discover_posters(discover_collection, days=1)
+        weekly_discover_posters = get_unique_discover_posters(discover_collection, days=7)
+        monthly_discover_posters = get_unique_discover_posters(discover_collection, days=30)
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Discover Daily", daily_discover_posters)
+        with col2:
+            st.metric("Discover Weekly", weekly_discover_posters)
+        with col3:
+            st.metric("Discover Monthly", monthly_discover_posters)
 
     # Retention Rate Calculation
     st.subheader("User Retention")
