@@ -205,7 +205,7 @@ def show_user_activity_view():
         # Display metrics
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Daily Active User (last 24h)", len(daily_active_users))
+            st.metric("Daily Active Users (last 24h)", len(daily_active_users))
         with col2:
             st.metric("Weekly Active Users (last 7d)",
                       len(weekly_active_users))
