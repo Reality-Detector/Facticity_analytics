@@ -271,3 +271,11 @@ def get_active_users(timeframe="daily", exclude_blacklisted=True):
     
     # Get active users after cutoff
     return get_mongo_active_users(cutoff, exclude_blacklisted)
+def get_active_users_custom(x, exclude_blacklisted=True):
+    from datetime import datetime, timedelta, timezone
+    from database.mongo_client import get_mongo_active_users
+
+    # Calculate current time and cutoff based on timeframe
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=x)
+    return get_mongo_active_users(cutoff, exclude_blacklisted)
