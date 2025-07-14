@@ -195,7 +195,8 @@ def show_interactive_engagement_view():
             st.stop()
 
         df = pd.DataFrame(activity_data)
-        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+        df["timestamp"] = pd.to_datetime(df["timestamp"], format='mixed', utc=True, errors='coerce')
+
 
         if exclude_blacklisted:
             df = df[df["userEmail"].apply(is_valid_user)]
