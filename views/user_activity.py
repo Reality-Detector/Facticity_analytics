@@ -20,6 +20,7 @@ client = MongoClient(DB_CONNECTION_STRING)
 db = client["facticity"]
 gamef = db["gamefile"]
 discover_collection = db["discover_posts"]
+collections=db['query_new']
 def get_unique_discover_emails(collection, days=1):
     now = datetime.now(timezone.utc)
     past = now - timedelta(days=days)
@@ -491,5 +492,62 @@ def show_user_activity_view():
             "⬇️ Download CSV",
             data=df.to_csv(index=False),
             file_name=f"user_emails_{days}_days.csv",
+            mime="text/csv"
+        )
+    st.subheader("🔍 Filter User Emails by Requester URL")
+
+    # MongoDB collection access
+    collection = collections
+
+    # Fetch relevant query data within selected time window
+    query_filter = {
+        "timestamp": {"$gte": (datetime.utcnow() - timedelta(days=days)).isoformat()}
+    }
+    # Correct projection (no filters.requester_url!)
+    projection = {"userEmail": 1, "requester_url": 1, "timestamp": 1}
+
+    # Fetch data
+    query_data = list(collection.find(query_filter, projection))
+
+    if not query_data:
+        st.warning("No query data found in the selected time window.")
+        st.stop()
+
+    # Convert to DataFrame
+    df = pd.DataFrame(query_data)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+
+    # Drop entries without requester_url
+    df["requester_url"] = df["requester_url"].fillna("").astype(str).str.strip()
+
+    # Filter only rows where requester_url is empty
+    df.loc[df["requester_url"] == "", "requester_url"] = "Writer"
+    # Categorize requester types
+    def categorize_requester(url):
+        if url == "https://app.facticity.ai":
+            return "Facticity App"
+        elif url == "chrome-extension://mlackneplpmmomaobipjjpebhgcgmocp/sidebar.html":
+            return "Chrome Extension"
+        elif url == "x_bot":
+            return "Bot"
+        elif url=="Writer":
+            return "Writer"
+        else:
+            return "Other"
+
+    df["requester_type"] = df["requester_url"].apply(categorize_requester)
+
+    # Group and display user emails
+    for requester_type, group in df.groupby("requester_type"):
+        emails = group["userEmail"].dropna().unique()
+        email_df = pd.DataFrame(emails, columns=["userEmail"])
+
+        st.markdown(f"### 📂 {requester_type} ({len(emails)} users)")
+        st.dataframe(email_df)
+
+        st.download_button(
+            label=f"⬇️ Download {requester_type} Emails",
+            data=email_df.to_csv(index=False).encode("utf-8"),
+            file_name=f"{requester_type.lower().replace(' ', '_')}_emails.csv",
             mime="text/csv"
         )
