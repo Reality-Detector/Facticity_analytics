@@ -25,7 +25,7 @@ from services.analytics import get_active_users
 
 from utils.chart_utils import generate_chart, generate_url_breakdown_chart, generate_user_breakdown_chart
 
-from config import PRIMARY_BLUE, LIGHT_BLUE, MODERN_ORANGE, API_DB_CONNECTION_STRING, green_1, blue_5
+from config import PRIMARY_BLUE, LIGHT_BLUE, MODERN_ORANGE, green_1, blue_5
 
 
 def show_overview_view():
@@ -106,7 +106,7 @@ def show_overview_view():
 
         # Get API query data
         daily_results_api = aggregate_daily_with_users(
-            daily_start, daily_end, exclude_blacklisted, db_string=API_DB_CONNECTION_STRING)
+            daily_start, daily_end, exclude_blacklisted, db_string="api")
 
         # Create a dictionary of API query counts by date
         api_counts = {}
@@ -119,7 +119,12 @@ def show_overview_view():
 
         # Normalize URLs: remove trailing slashes and map them together
         def normalize_url(url):
-            return url.rstrip("/") if url else "writer"
+            if not url:
+                return "writer"
+            # Convert MongoDB-safe keys back to original URLs (replace underscores with dots)
+            original_url = url.replace("_", ".")
+            # Remove trailing slashes
+            return original_url.rstrip("/")
 
         # Build normalized URL counts per day
         normalized_breakdown = []

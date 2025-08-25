@@ -9,14 +9,15 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, timezone
 from wordcloud import WordCloud
-from pymongo import MongoClient
+# from pymongo import MongoClient
 from config import DB_CONNECTION_STRING
+from dbutils.DocumentDB import document_db_web2
 
 from database.mongo_client import get_db_connection, is_valid_user, fetch_all_emails_with_timestamps
 from database.auth0_client import get_auth0_user_list
 from services.analytics import get_active_users, calculate_retention_rate, get_active_users_custom
 
-client = MongoClient(DB_CONNECTION_STRING)
+client = document_db_web2.get_client()
 db = client["facticity"]
 gamef = db["gamefile"]
 discover_collection = db["discover_posts"]
@@ -524,13 +525,15 @@ def show_user_activity_view():
     df.loc[df["requester_url"] == "", "requester_url"] = "Writer"
     # Categorize requester types
     def categorize_requester(url):
-        if url == "https://app.facticity.ai":
+        # Convert MongoDB-safe keys back to original URLs (replace underscores with dots)
+        original_url = url.replace("_", ".")
+        if original_url == "https://app.facticity.ai":
             return "Facticity App"
-        elif url == "chrome-extension://mlackneplpmmomaobipjjpebhgcgmocp/sidebar.html":
+        elif original_url == "chrome-extension://mlackneplpmmomaobipjjpebhgcgmocp/sidebar.html":
             return "Chrome Extension"
-        elif url == "x_bot":
+        elif original_url == "x_bot":
             return "Bot"
-        elif url=="Writer":
+        elif original_url=="Writer":
             return "Writer"
         else:
             return "Other"

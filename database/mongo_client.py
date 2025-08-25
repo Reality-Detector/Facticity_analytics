@@ -5,12 +5,12 @@ Main client database is represented by DB_CONNECTION_STRING. API database starts
 query_new collection is queried here for data on query activity. 
 """
 import streamlit as st
-from pymongo import MongoClient
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 
-from config import DB_CONNECTION_STRING, BLACKLIST_EMAILS, BLACKLIST_DOMAINS, API_DB_CONNECTION_STRING
-
+from config import BLACKLIST_EMAILS, BLACKLIST_DOMAINS, DB_CONNECTION_STRING
+from dbutils.DocumentDB import document_db_web2, document_db_api, document_db_web3
+from utils import normalize_url_for_mongo, denormalize_url_from_mongo
 
 @st.cache_resource
 def get_db_connection(db_string=DB_CONNECTION_STRING, max_retries=3):
@@ -31,19 +31,11 @@ def get_db_connection(db_string=DB_CONNECTION_STRING, max_retries=3):
     for attempt in range(max_retries):
         try:
             # Create client with timeouts and connection pooling
-            client = MongoClient(
-                db_string,
-                serverSelectionTimeoutMS=15000,  # 15 seconds
-                connectTimeoutMS=15000,          # 15 seconds
-                socketTimeoutMS=15000,           # 15 seconds
-                maxPoolSize=10,
-                retryWrites=True,
-                # Add DNS resolution timeout
-                maxIdleTimeMS=30000,
-                heartbeatFrequencyMS=10000,
-                # Disable SSL certificate verification if needed (only for development)
-                # tlsAllowInvalidCertificates=True,  # Uncomment if SSL issues
-            )
+            if db_string == "api":
+                client = document_db_api.get_client()
+            else:
+                client = document_db_web2.get_client()
+
 
             # Test the connection with a simple ping
             client.admin.command('ping')
@@ -206,6 +198,7 @@ def aggregate_daily_by_url(start_date, end_date, exclude_blacklisted=False, db_s
             ...
         ]
     """
+    print("DB STRING:", db_string)
     collection = get_db_connection(db_string)
 
     # Ensure timestamp exists and convert missing requester_url to "writer"
@@ -249,13 +242,29 @@ def aggregate_daily_by_url(start_date, end_date, exclude_blacklisted=False, db_s
                 }
             }
         }},
-        {"$addFields": {
-            "urls": {"$arrayToObject": "$urls"}
-        }},
         {"$sort": {"_id": 1}}
     ]
 
-    return list(collection.aggregate(pipeline))
+    # Get the raw results and process them in Python to avoid DocumentDB limitations
+    raw_results = list(collection.aggregate(pipeline))
+    
+    # Process results to create safe field names for URLs
+    processed_results = []
+    for result in raw_results:
+        processed_urls = {}
+        for url_item in result["urls"]:
+            url = url_item["k"]
+            count = url_item["v"]
+            # Create a safe key by replacing dots with underscores
+            safe_key = url.replace(".", "_")
+            processed_urls[safe_key] = count
+        
+        processed_results.append({
+            "_id": result["_id"],
+            "urls": processed_urls
+        })
+    
+    return processed_results
 
 
 @st.cache_data(ttl=10800)
@@ -341,13 +350,29 @@ def aggregate_daily_users_by_url(start_date, end_date, exclude_blacklisted=False
                 }
             }
         }},
-        {"$addFields": {
-            "urls": {"$arrayToObject": "$urls"}
-        }},
         {"$sort": {"_id": 1}}
     ]
 
-    return list(collection.aggregate(pipeline))
+    # Get the raw results and process them in Python to avoid DocumentDB limitations
+    raw_results = list(collection.aggregate(pipeline))
+    
+    # Process results to create safe field names for URLs
+    processed_results = []
+    for result in raw_results:
+        processed_urls = {}
+        for url_item in result["urls"]:
+            url = url_item["k"]
+            count = url_item["v"]
+            # Create a safe key by replacing dots with underscores
+            safe_key = url.replace(".", "_")
+            processed_urls[safe_key] = count
+        
+        processed_results.append({
+            "_id": result["_id"],
+            "urls": processed_urls
+        })
+    
+    return processed_results
 
 @st.cache_data(ttl=10800)
 def aggregate_weekly_with_users(start_date, end_date, exclude_blacklisted=False):

@@ -929,11 +929,10 @@ def generate_user_profiles_integrated(start_date, end_date, max_users=500, max_q
     # Fetch user queries
     with st.spinner(f"Fetching user queries (max {max_users} users, {max_queries_per_user} queries each)..."):
         # Import the mongo client function that returns the client, not collection
-        from database.mongo_client import MongoClient
-        from config import DB_CONNECTION_STRING
+        from database.mongo_client import get_db_connection
 
         def get_mongo_client():
-            return MongoClient(DB_CONNECTION_STRING)
+            return get_db_connection()
 
         unique_df, full_df, meta = fetch_user_queries_with_date_range(
             get_mongo_client, start_date, end_date, max_users, max_queries_per_user

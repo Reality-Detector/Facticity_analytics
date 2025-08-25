@@ -24,3 +24,7 @@ Thumbs.db
 # Ignore data files
 data/
 subscriptions.csv
+
+
+# ignore environment variables
+.env

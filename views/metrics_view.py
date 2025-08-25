@@ -5,7 +5,6 @@ from collections import defaultdict
 import streamlit as st
 import pandas as pd
 from datetime import timedelta, datetime
-from pymongo import MongoClient
 
 from database.mongo_client import (
     aggregate_daily_with_users,
@@ -30,7 +29,7 @@ from utils.chart_utils import (
 
 from utils.date_utils import quarter_sort_key
 
-from config import API_DB_CONNECTION_STRING, PRIMARY_BLUE, LIGHT_BLUE, MODERN_ORANGE, green_1, blue_5
+from config import PRIMARY_BLUE, LIGHT_BLUE, MODERN_ORANGE, green_1, blue_5
 from config import DB_CONNECTION_STRING
 
 
@@ -75,7 +74,7 @@ def show_metrics_view():
 
         # Get API query data
         daily_results_api = aggregate_daily_with_users(
-            daily_start, daily_end, exclude_blacklisted, db_string=API_DB_CONNECTION_STRING)
+            daily_start, daily_end, exclude_blacklisted, db_string="api")
 
         # Create a dictionary of API query counts by date
         api_counts = {}
@@ -88,7 +87,12 @@ def show_metrics_view():
 
         # Normalize URLs: remove trailing slashes and map them together
         def normalize_url(url):
-            return url.rstrip("/") if url else "writer"
+            if not url:
+                return "writer"
+            # Convert MongoDB-safe keys back to original URLs (replace underscores with dots)
+            original_url = url.replace("_", ".")
+            # Remove trailing slashes
+            return original_url.rstrip("/")
 
         # Build normalized URL counts per day
         normalized_breakdown = []
@@ -270,7 +274,8 @@ def show_metrics_view():
     st.subheader("📈 Game Participation Over Time")
 
     # Connect to MongoDB (reuse or import your existing connection string)
-    game_client = MongoClient(DB_CONNECTION_STRING)
+    from dbutils.DocumentDB import document_db_web2
+    game_client = document_db_web2.get_client()
     game_db = game_client["facticity"]
     game_collection = game_db["gamefile"]
 
@@ -305,7 +310,7 @@ def show_metrics_view():
     # ------------------------------------------------
     st.subheader("📰 New Discover Posts Per Day (Last 14 Days)")
 
-    discover_client = MongoClient(DB_CONNECTION_STRING)
+    discover_client = document_db_web2.get_client()
     discover_db = discover_client["facticity"]
     posts_collection = discover_db["discover_posts"]
 
