@@ -11,9 +11,13 @@ python-dotenv==1.0.1
 Requests==2.32.3
 scikit_learn==1.1.2
 seaborn==0.13.2
+sshtunnel==0.4.0
 streamlit==1.43.2
 streamlit_folium==0.24.0
 streamlit_plotly_events==0.0.6
 wordcloud==1.9.4
 google-genai
 boto3
+sshtunnel==0.4.0
+paramiko==3.5.1
+cryptography==45.0.5
