@@ -11,7 +11,7 @@ import gzip
 import io
 import time
 from datetime import datetime, timedelta
-from auth0.v3.authentication import GetToken
+from auth0.authentication import GetToken
 import os
 
 from config import AUTH0_DOMAIN, CLIENT_ID, CLIENT_SECRET, API_AUDIENCE
