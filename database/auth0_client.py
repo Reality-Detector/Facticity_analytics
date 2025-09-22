@@ -11,7 +11,7 @@ import gzip
 import io
 import time
 from datetime import datetime, timedelta
-from auth0.v3.authentication import GetToken
+from auth0.authentication import GetToken
 import os
 
 from config import AUTH0_DOMAIN, CLIENT_ID, CLIENT_SECRET, API_AUDIENCE
@@ -26,12 +26,37 @@ def get_auth0_token():
         str: Access token or None if failed
     """
     try:
-        get_token = GetToken(AUTH0_DOMAIN)
+        print(f"Attempting Auth0 authentication...")
+        print(f"   Domain: {AUTH0_DOMAIN}")
+        print(f"   Client ID: {CLIENT_ID}")
+        print(f"   API Audience: {API_AUDIENCE}")
+        
+        # Check if required variables are set
+        if not all([AUTH0_DOMAIN, CLIENT_ID, CLIENT_SECRET]):
+            print("Missing Auth0 configuration variables")
+            return None
+        
+        get_token = GetToken(AUTH0_DOMAIN, CLIENT_ID)
         token = get_token.client_credentials(
             CLIENT_ID, CLIENT_SECRET, API_AUDIENCE)
-        return token.get("access_token")
+        
+        access_token = token.get("access_token")
+        if access_token:
+            print(f"Auth0 token retrieved successfully!")
+            return access_token
+        else:
+            print(f"No access token in response: {token}")
+            return None
+            
     except Exception as e:
-        st.error(f"Failed to get Auth0 token: {e}")
+        print(f"Failed to get Auth0 token: {e}")
+        print(f"   Error type: {type(e).__name__}")
+        if hasattr(e, 'response'):
+            print(f"   Response status: {e.response.status_code if hasattr(e.response, 'status_code') else 'Unknown'}")
+            print(f"   Response text: {e.response.text if hasattr(e.response, 'text') else 'Unknown'}")
+        
+        # DPreventing the error from being shown in the Streamlit UI
+        print("Auth0 authentication failed - continuing without Auth0 features")
         return None
 
 
@@ -157,6 +182,9 @@ def aggregate_auth0_daily(auth0_df, window_start, window_end):
     Returns:
         DataFrame: DataFrame with daily new and total users
     """
+    if auth0_df is None or auth0_df.empty:
+        return pd.DataFrame(columns=['new_users', 'total_users'])
+    
     df = auth0_df.copy().dropna(
         subset=["created_at"]).sort_values("created_at")
     df["created_at"] = pd.to_datetime(df["created_at"], utc=True)
@@ -196,6 +224,9 @@ def aggregate_auth0_weekly(auth0_df, window_start, window_end):
     Returns:
         DataFrame: DataFrame with weekly new and total users
     """
+    if auth0_df is None or auth0_df.empty:
+        return pd.DataFrame(columns=['new_users', 'total_users'])
+    
     df = auth0_df.copy().dropna(
         subset=["created_at"]).sort_values("created_at")
     df["created_at"] = pd.to_datetime(df["created_at"], utc=True)
@@ -247,6 +278,9 @@ def aggregate_auth0_monthly(auth0_df, window_start, window_end):
     Returns:
         DataFrame: DataFrame with monthly new and total users
     """
+    if auth0_df is None or auth0_df.empty:
+        return pd.DataFrame(columns=['new_users', 'total_users'])
+    
     df = auth0_df.copy().dropna(
         subset=["created_at"]).sort_values("created_at")
     df["created_at"] = pd.to_datetime(df["created_at"], utc=True)
@@ -286,6 +320,9 @@ def aggregate_auth0_quarterly(auth0_df, window_start, window_end):
     Returns:
         DataFrame: DataFrame with quarterly new and total users
     """
+    if auth0_df is None or auth0_df.empty:
+        return pd.DataFrame(columns=['new_users', 'total_users'])
+    
     from utils.date_utils import quarter_sort_key
     
     # Prepare monthly data

@@ -1,5 +1,5 @@
 altair==5.5.0
-auth0_python==3.24.1
+auth0-python==4.10.0
 folium==0.19.5
 matplotlib==3.5.2
 numpy==1.23.3

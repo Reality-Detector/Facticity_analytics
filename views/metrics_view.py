@@ -183,6 +183,9 @@ def show_metrics_view():
 
     # Get Auth0 DataFrame
     auth0_df = get_auth0_user_list()
+    if auth0_df is None:
+        st.warning("Auth0 data unavailable")
+        auth0_df = pd.DataFrame()  # Using empty dataframe instead to avoid errors
 
     # Fetch aggregated data with blacklist exclusion option
     with st.spinner("Loading metrics data..."):
