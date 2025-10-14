@@ -750,3 +750,138 @@ def fetch_recent_queries(days=7, exclude_blacklisted=True):
     except Exception as e:
         st.error(f"Error fetching recent queries: {e}")
         return None
+
+
+@st.cache_data(ttl=10800)
+def aggregate_daily_tweets(start_date, end_date):
+    """
+    Aggregates tweet counts by day from the tweets collection.
+    
+    Args:
+        start_date: Start date in ISO format
+        end_date: End date in ISO format
+        
+    Returns:
+        list: List of aggregation results with _id (date) and tweet_count
+    """
+    from dbutils.DocumentDB import document_db_web2
+    
+    try:
+        client = document_db_web2.get_client()
+        tweets_collection = client["facticity"]["tweets"]
+        
+        # Convert ISO strings to datetime objects
+        start_dt = pd.to_datetime(start_date).to_pydatetime()
+        end_dt = pd.to_datetime(end_date).to_pydatetime()
+        
+        pipeline = [
+            {
+                "$match": {
+                    "created_at": {"$gte": start_dt, "$lt": end_dt}
+                }
+            },
+            {
+                "$project": {
+                    "date": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": "$created_at"
+                        }
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$date",
+                    "tweet_count": {"$sum": 1}
+                }
+            },
+            {
+                "$sort": {"_id": 1}
+            }
+        ]
+        
+        results = list(tweets_collection.aggregate(pipeline))
+        return results
+        
+    except Exception as e:
+        st.warning(f"Error fetching Twitter data: {e}")
+        return []
+
+
+@st.cache_data(ttl=10800)
+def aggregate_daily_twitter_users(start_date, end_date):
+    """
+    Aggregates unique Twitter users (taggers) by day from the tweets collection.
+    
+    Args:
+        start_date: Start date in ISO format
+        end_date: End date in ISO format
+        
+    Returns:
+        list: List of aggregation results with _id (date) and user_count
+    """
+    from dbutils.DocumentDB import document_db_web2
+    
+    try:
+        client = document_db_web2.get_client()
+        tweets_collection = client["facticity"]["tweets"]
+        
+        # Convert ISO strings to datetime objects
+        start_dt = pd.to_datetime(start_date).to_pydatetime()
+        end_dt = pd.to_datetime(end_date).to_pydatetime()
+        
+        pipeline = [
+            {
+                "$match": {
+                    "created_at": {"$gte": start_dt, "$lt": end_dt},
+                    "$or": [
+                        {"tagger.username": {"$exists": True, "$ne": ""}},
+                        {"tagger.id": {"$exists": True, "$ne": ""}}
+                    ]
+                }
+            },
+            {
+                "$project": {
+                    "date": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": "$created_at"
+                        }
+                    },
+                    "user_identifier": {
+                        "$cond": [
+                            {
+                                "$and": [
+                                    {"$ne": ["$tagger.username", None]},
+                                    {"$ne": ["$tagger.username", ""]}
+                                ]
+                            },
+                            "$tagger.username",
+                            {"$toString": "$tagger.id"}
+                        ]
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": {"date": "$date", "user": "$user_identifier"}
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$_id.date",
+                    "user_count": {"$sum": 1}
+                }
+            },
+            {
+                "$sort": {"_id": 1}
+            }
+        ]
+        
+        results = list(tweets_collection.aggregate(pipeline))
+        return results
+        
+    except Exception as e:
+        st.warning(f"Error fetching Twitter user data: {e}")
+        return []

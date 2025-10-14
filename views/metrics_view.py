@@ -12,7 +12,9 @@ from database.mongo_client import (
     aggregate_monthly_with_users,
     aggregate_quarterly_with_users,
     aggregate_daily_by_url,
-    aggregate_daily_users_by_url
+    aggregate_daily_users_by_url,
+    aggregate_daily_tweets,
+    aggregate_daily_twitter_users
 )
 from database.auth0_client import (
     get_auth0_user_list,
@@ -29,7 +31,7 @@ from utils.chart_utils import (
 
 from utils.date_utils import quarter_sort_key
 
-from config import PRIMARY_BLUE, LIGHT_BLUE, MODERN_ORANGE, green_1, blue_5
+from config import PRIMARY_BLUE, LIGHT_BLUE, MODERN_ORANGE, green_1, blue_2, blue_5
 from config import DB_CONNECTION_STRING
 
 
@@ -82,6 +84,13 @@ def show_metrics_view():
             for doc in daily_results_api:
                 api_counts[doc["_id"]] = doc["query_count"]
 
+        # Get Twitter tweet data
+        twitter_data = aggregate_daily_tweets(daily_start, daily_end)
+        twitter_counts = {}
+        if twitter_data:
+            for doc in twitter_data:
+                twitter_counts[doc["_id"]] = doc["tweet_count"]
+
         # Extract sorted dates
         dates = [row["_id"] for row in breakdown]
 
@@ -107,6 +116,10 @@ def show_metrics_view():
             if date in api_counts:
                 normalized_urls["API"] = api_counts[date]
 
+            # Add Twitter counts as araistotle category
+            if date in twitter_counts:
+                normalized_urls["araistotle"] = twitter_counts[date]
+
             normalized_breakdown.append({
                 "_id": date,
                 "urls": dict(normalized_urls)
@@ -127,7 +140,7 @@ def show_metrics_view():
 
         # Custom color map to ensure API is green_1
         color_map = {"API": green_1, "chrome-extension://mlackneplpmmomaobipjjpebhgcgmocp/sidebar.html": MODERN_ORANGE,
-                     "https://app.facticity.ai": LIGHT_BLUE, "writer": blue_5}
+                     "https://app.facticity.ai": LIGHT_BLUE, "writer": blue_5, "araistotle": blue_2}
 
         # Generate the chart with custom colors
         generate_url_breakdown_chart(
@@ -142,6 +155,13 @@ def show_metrics_view():
         user_breakdown = aggregate_daily_users_by_url(
             daily_start, daily_end, exclude_blacklisted)
 
+        # Get Twitter user data
+        twitter_user_data = aggregate_daily_twitter_users(daily_start, daily_end)
+        twitter_user_counts = {}
+        if twitter_user_data:
+            for doc in twitter_user_data:
+                twitter_user_counts[doc["_id"]] = doc["user_count"]
+
         if user_breakdown:
             # Extract sorted dates
             user_dates = [row["_id"] for row in user_breakdown]
@@ -153,6 +173,12 @@ def show_metrics_view():
                 for url, count in row["urls"].items():
                     norm_url = normalize_url(url)
                     normalized_urls[norm_url] += count
+                
+                # Add Twitter user counts as araistotle
+                date = row["_id"]
+                if date in twitter_user_counts:
+                    normalized_urls["araistotle"] = twitter_user_counts[date]
+                
                 normalized_user_breakdown.append({
                     "_id": row["_id"],
                     "urls": dict(normalized_urls)

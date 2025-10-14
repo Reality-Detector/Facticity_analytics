@@ -465,35 +465,45 @@ def show_twitter_bot_analytics():
     col1, col2 = st.columns(2)
     
     with col1:
-        # Histogram of response times (filtered to 120 minutes max, bin size capped at 20 minutes)
-        filtered_data = stats['data'][stats['data']['response_time_minutes'] <= 120]
+        # Histogram of response times with fixed 5-minute intervals (0-60 minutes)
+        filtered_data = stats['data'][stats['data']['response_time_minutes'] <= 60]
         
-        # Calculate appropriate number of bins to keep bin size ≤ 20 minutes
-        max_time = filtered_data['response_time_minutes'].max() if len(filtered_data) > 0 else 120
-        bin_size = min(20, max_time / 10)  # Cap bin size at 20 minutes, minimum 10 bins
-        nbins = max(10, int(max_time / bin_size))
+        # Create bins with 5-minute intervals (0-5, 5-10, 10-15, ..., 55-60)
+        bin_size = 5
+        max_time = 60
+        bins = list(range(0, max_time + bin_size, bin_size))
         
-        fig_hist = px.histogram(
-            filtered_data,
-            x="response_time_minutes",
-            nbins=nbins,
-            title="Response Time Distribution",
-            labels={"response_time_minutes": "Response Time (minutes)", "count": "Number of Tweets"}
-        )
-        fig_hist.update_layout(showlegend=False)
+        # Create histogram using manual bins
+        hist_data, bin_edges = np.histogram(filtered_data['response_time_minutes'], bins=bins)
         
-        # Add outlines to bars for better visual separation
-        fig_hist.update_traces(
-            marker=dict(
-                line=dict(width=1, color='white')
+        # Create bin labels (e.g., "0-5", "5-10", etc.)
+        bin_labels = [f"{int(bin_edges[i])}-{int(bin_edges[i+1])}" for i in range(len(bin_edges)-1)]
+        
+        # Create bar chart with fixed 5-minute intervals
+        fig_hist = go.Figure(data=[
+            go.Bar(
+                x=bin_labels,
+                y=hist_data,
+                marker=dict(
+                    color='#3b82f6',
+                    line=dict(width=1, color='white')
+                )
             )
+        ])
+        
+        fig_hist.update_layout(
+            title="Response Time Distribution (5-minute intervals)",
+            xaxis_title="Response Time (minutes)",
+            yaxis_title="Number of Tweets",
+            showlegend=False,
+            xaxis=dict(tickangle=-45)
         )
         
         st.plotly_chart(fig_hist, use_container_width=True)
     
     with col2:
-        # Box plot of response times (filtered to 120 minutes max for better detail)
-        filtered_data_box = stats['data'][stats['data']['response_time_minutes'] <= 120]
+        # Box plot of response times (filtered to 60 minutes max for better detail)
+        filtered_data_box = stats['data'][stats['data']['response_time_minutes'] <= 60]
         
         if len(filtered_data_box) > 0:
             fig_box = px.box(
@@ -552,6 +562,218 @@ def show_twitter_bot_analytics():
             create_stage_bar_chart(stage_data)
         else:
             st.warning("No stage data available.")
+    
+    # Top Bot Taggers section
+    st.subheader("Most Frequent Bot Taggers")
+    
+    with st.spinner("Analyzing top taggers..."):
+        # Get top users who tagged the bot most
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        
+        pipeline = [
+            {
+                # Look out for tweets that are in the last n days (slider) and tweets that have either a username or id (taken from tagger object)
+                "$match": {
+                    "created_at": {"$gte": cutoff_date},
+                    "$or": [
+                        {"tagger.username": {"$exists": True, "$ne": ""}},
+                        {"tagger.id": {"$exists": True, "$ne": ""}}
+                    ]
+                }
+            },
+            {
+                "$project": {
+                    "username": {
+                        "$cond": [
+                            {
+                            "$and": [
+                                {"$ne": ["$tagger.username", None]},  # Not null
+                                {"$ne": ["$tagger.username", ""]},    # Not empty string
+                                # {"$gt": [{"$strLenCP": {"$ifNull": ["$tagger.username", ""]}}, 0]}  # Has length > 0
+                            ]
+                            },
+                            "$tagger.username",
+                            {
+                            "$cond": [
+                                {
+                                "$and": [
+                                    {"$ne": ["$tagger.id", None]},
+                                    {"$ne": ["$tagger.id", ""]}
+                                ]
+                                },
+                                {"$toString": "$tagger.id"},   # Convert to string
+                                "Unknown"                      # Last resort
+                            ]
+                            }
+                        ]
+                        },
+                    "created_at": 1,
+                    "reply_timestamp": 1,
+                    "stage": 1,
+                    "user_intent.intent": 1,
+                    "parent_tweet": 1,
+                    "mention_tweet": 1,
+                    "replied": 1,
+                    "response_time_minutes": {
+                        "$cond": [
+                            {
+                                "$and": [
+                                    {"$ne": ["$reply_timestamp", None]},
+                                    {"$ne": ["$created_at", None]}
+                                ]
+                            },
+                            {"$divide": [
+                                {"$subtract": ["$reply_timestamp", "$created_at"]},
+                                60000
+                            ]},
+                            None
+                        ]
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$username",
+                    "total_tags": {"$sum": 1},
+                    "tweets": {
+                        "$push": {
+                            "created_at": "$created_at",
+                            "stage": "$stage",
+                            "intent": "$user_intent.intent",
+                            "parent_tweet": "$parent_tweet",
+                            "mention_tweet": "$mention_tweet",
+                            "replied": "$replied",
+                            "response_time": "$response_time_minutes" # previously copmuted response time used as response time field
+                        }
+                    }
+                }
+            },
+            {
+                "$sort": {"total_tags": -1}
+            },
+            {
+                "$limit": 10
+            }
+        ]
+        
+        top_taggers = list(collection.aggregate(pipeline))
+        
+        if top_taggers:
+            # Create summary table
+            summary_data = []
+            for tagger in top_taggers:
+                summary_data.append({
+                    "Username/User ID": tagger["_id"] if tagger["_id"] else "Unknown",
+                    "Number of Tweets": tagger["total_tags"]
+                })
+            
+            df_summary = pd.DataFrame(summary_data)
+            st.dataframe(df_summary, use_container_width=True)
+            
+            # Show detailed tweets for each top tagger
+            st.subheader("Detailed Tweet History")
+            
+            # Tweets per page dropdown
+            tweets_per_page = st.selectbox(
+                "Tweets per page:",
+                options=[1, 5, 10, 20],
+                index=1,  # Default to 5
+                key="tweets_per_page"
+            )
+            
+            for idx, tagger in enumerate(top_taggers):
+                username = tagger["_id"] if tagger["_id"] else "Unknown"
+                total_tweets = tagger["total_tags"]
+                
+                with st.expander(f"#{idx+1} - {username} ({total_tweets} tweets)"):
+                    # Get all tweets and sort by created_at descending
+                    tweets = tagger["tweets"]
+                    tweets_sorted = sorted(
+                        tweets, 
+                        key=lambda x: x.get("created_at") if x.get("created_at") else datetime.min.replace(tzinfo=timezone.utc),
+                        reverse=True
+                    )
+                    
+                    # Pagination
+                    total_pages = (len(tweets_sorted) + tweets_per_page - 1) // tweets_per_page  # Ceiling division
+                    
+                    if total_pages > 0:
+                        # Create unique key for each user's pagination
+                        page_key = f"page_{idx}_{username}"
+                        
+                        # Initialize session state for this user if not exists
+                        if page_key not in st.session_state:
+                            st.session_state[page_key] = 1
+                        
+                        # Pagination controls
+                        col1, col2, col3 = st.columns([1, 2, 1])
+                        
+                        with col1:
+                            if st.button("◀ Previous", key=f"prev_{idx}", disabled=st.session_state[page_key] <= 1):
+                                st.session_state[page_key] -= 1
+                                st.rerun()
+                        
+                        with col2:
+                            st.write(f"Page {st.session_state[page_key]} of {total_pages}")
+                        
+                        with col3:
+                            if st.button("Next ▶", key=f"next_{idx}", disabled=st.session_state[page_key] >= total_pages):
+                                st.session_state[page_key] += 1
+                                st.rerun()
+                        
+                        # Calculate slice for current page
+                        start_idx = (st.session_state[page_key] - 1) * tweets_per_page
+                        end_idx = start_idx + tweets_per_page
+                        tweets_to_display = tweets_sorted[start_idx:end_idx]
+                    else:
+                        tweets_to_display = []
+                    
+                    if tweets_to_display:
+                        # Calculate the actual tweet number based on page
+                        start_num = (st.session_state[page_key] - 1) * tweets_per_page + 1
+                        
+                        for i, tweet in enumerate(tweets_to_display, start_num):
+                            st.markdown(f"**Tweet {i}**")
+                            
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                created_at = tweet.get("created_at")
+                                if created_at:
+                                    st.write(f"📅 **Date:** {created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+                                
+                                intent = tweet.get("intent")
+                                if intent:
+                                    st.write(f"**Intent:** {intent}")
+                                
+                                stage = tweet.get("stage")
+                                if stage:
+                                    st.write(f"**Stage:** {stage}")
+                            
+                            with col2:
+                                replied = tweet.get("replied")
+                                if replied:
+                                    st.write(f"**Replied:** Yes")
+                                else:
+                                    st.write(f"**Replied:** No")
+                                
+                                response_time = tweet.get("response_time")
+                                if response_time is not None:
+                                    st.write(f"⏱️ **Response Time:** {response_time:.1f} min")
+                            
+                            mention_tweet = tweet.get("mention_tweet")
+                            if mention_tweet:
+                                st.write(f"**Mention Tweet:** {mention_tweet[:500]}")
+                            
+                            parent_tweet = tweet.get("parent_tweet")
+                            if parent_tweet:
+                                st.write(f"**Parent Tweet:** {parent_tweet[:500]}")
+                            
+                            st.markdown("---")
+                    else:
+                        st.info("No tweet details available")
+        else:
+            st.info("No tagger data available for the selected period.")
     
     # Raw data section
     with st.expander("Raw Data"):
