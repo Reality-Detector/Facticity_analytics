@@ -14,6 +14,11 @@ class DocumentDB:
         'api': 'aiseer-documentdb-2.c3gsycya27j9.us-west-2.docdb.amazonaws.com',
         'web3': 'aiseer-documentdb-3.c3gsycya27j9.us-west-2.docdb.amazonaws.com'
     }
+
+     
+    # Direct MongoDB connection for web3 (no SSH tunnel)
+    WEB3_DIRECT_URI = "mongodb://prodadmin:u43ECwAf1j7RnqnP@ec2-54-213-32-246.us-west-2.compute.amazonaws.com:27017/?directConnection=true&retryWrites=false"
+    
     
     def __new__(cls, name='web2'):
         if name not in cls._instances:
@@ -50,21 +55,60 @@ class DocumentDB:
             self._initialized = True
     
     def connect(self):
-        """Establish connection to DocumentDB through SSH tunnel"""
+        """Establish connection to DocumentDB (SSH tunnel for web2/api, direct for web3)"""
         if self._client is not None:
             print(f"🔄 Reusing existing connection to {self.name} DocumentDB")
             return self._client
+        
+        # Check if this is web3 with direct connection
+        if self.name == 'web3':
+            return self._connect_direct()
+        else:
+            return self._connect_ssh_tunnel()
+    
+    def _connect_direct(self):
+        """Direct connection to MongoDB (for web3)"""
+        try:
+            print(f"Connecting directly to {self.name} MongoDB")
+            print(f"Direct connection using MongoDB URI")
             
+            # Create MongoDB client with direct connection using URI
+            self._client = MongoClient(
+                self.WEB3_DIRECT_URI,
+                maxPoolSize=30,
+                minPoolSize=5,
+                retryWrites=False
+            )
+            
+            # Test connection
+            print(f"Testing connection to {self.name}...")
+            server_info = self._client.server_info()
+            print(f"Connected successfully to {self.name}!")
+            print(f"Server version: {server_info.get('version', 'Unknown')}")
+            
+            # List all databases
+            print(f"\nDatabases available on {self.name}:")
+            db_names = self._client.list_database_names()
+            for db_name in db_names:
+                print(f"  - {db_name}")
+            print(f"📊 Total databases: {len(db_names)}")
+            
+            return self._client
+            
+        except Exception as e:
+            print(f"❌ Error connecting to {self.name}:", e)
+            raise
+    
+    def _connect_ssh_tunnel(self):
+        """Connection through SSH tunnel (for web2/api)"""
         try:
             print(f"🔌 Connecting to {self.name} DocumentDB: {self.DOCDB_HOST}")
             print(f"📡 Using SSH tunnel through {self.BASTION_HOST}")
             
-            # ========== Create SSH Tunnel and Connect ==========
             # Use different local ports for each target to avoid conflicts
             local_ports = {
                 'web2': 27020,
-                'api': 27021,
-                'web3': 27022
+                'api': 27021
             }
             local_port = local_ports.get(self.name, 27017)
             print(f"🔗 Local port: {local_port}")
