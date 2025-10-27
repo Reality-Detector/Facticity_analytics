@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 import numpy as np
 
-from dbutils.DocumentDB import document_db_web2
+from dbutils.DocumentDB import document_db_web2, document_db_web3
 from utils.chart_utils import generate_chart
 
 
@@ -28,6 +28,264 @@ def get_tweets_collection():
     except Exception as e:
         st.error(f"Failed to connect to tweets collection: {str(e)}")
         return None
+
+
+def get_query_new_collection():
+    """
+    Get connection to the query_new collection.
+    Now using web3 database for better feedback coverage.
+    
+    Returns:
+        MongoDB collection: The query_new collection
+    """
+    try:
+        client = document_db_web3.get_client()
+        db = client["facticity"]
+        return db["query_new"]
+    except Exception as e:
+        st.error(f"Failed to connect to query_new collection: {str(e)}")
+        return None
+
+
+def get_bonus_credit_tracker_collection():
+    """
+    Get connection to the bonus_credit_tracker collection.    
+    Returns:
+        MongoDB collection: The bonus_credit_tracker collection
+    """
+    try:
+        client = document_db_web3.get_client()
+        db = client["facticity"]
+        return db["bonus_credit_tracker"]
+    except Exception as e:
+        st.error(f"Failed to connect to bonus_credit_tracker collection: {str(e)}")
+        return None
+
+
+def examine_feedbacks_structure():
+    """
+    Examine the structure of feedbacks array in query_new collection
+    to understand the actual data format before creating visualizations.
+    """
+    try:
+        query_collection = get_query_new_collection()
+        if query_collection is None:
+            st.error("Failed to connect to query_new collection")
+            return
+        
+        # Get some sample documents with feedbacks
+        sample_docs = list(query_collection.find(
+            {"feedbacks": {"$exists": True, "$ne": []}},
+            {"task_id": 1, "feedbacks": 1, "dislikes": 1}
+        ).limit(5))
+        
+        if not sample_docs:
+            st.info("No documents with feedbacks found")
+            return
+        
+        st.subheader("📋 Sample Feedbacks Structure Analysis")
+        
+        for i, doc in enumerate(sample_docs, 1):
+            st.write(f"**Sample Document {i}:**")
+            st.write(f"Task ID: {doc.get('task_id', 'N/A')}")
+            st.write(f"Dislikes: {doc.get('dislikes', 0)}")
+            
+            feedbacks = doc.get("feedbacks", [])
+            st.write(f"Number of feedbacks: {len(feedbacks)}")
+            
+            if feedbacks:
+                st.write("**Feedbacks Array Structure:**")
+                for j, feedback in enumerate(feedbacks[:3], 1):  # Show first 3 feedbacks
+                    st.write(f"  Feedback {j}:")
+                    st.write(f"    - Keys: {list(feedback.keys())}")
+                    
+                    if "user_email" in feedback:
+                        st.write(f"    - user_email: {feedback['user_email']}")
+                    
+                    if "comments" in feedback:
+                        st.write(f"    - comments: {feedback['comments']}")
+                    
+                    if "reasons" in feedback:
+                        st.write(f"    - reasons: {feedback['reasons']}")
+                    
+                    st.write("---")
+            
+            st.write("=" * 50)
+        
+        # Analyze all feedbacks to understand patterns
+        st.subheader("📊 Feedbacks Analysis")
+        
+        all_feedbacks = []
+        all_docs = list(query_collection.find(
+            {"feedbacks": {"$exists": True, "$ne": []}},
+            {"feedbacks": 1}
+        ).limit(50))  # Analyze more docs
+        
+        for doc in all_docs:
+            all_feedbacks.extend(doc.get("feedbacks", []))
+        
+        if all_feedbacks:
+            st.write(f"**Total feedbacks analyzed: {len(all_feedbacks)}**")
+            
+            # Count unique reasons
+            all_reasons = []
+            all_comments = []
+            users_with_feedback = set()
+            
+            for feedback in all_feedbacks:
+                if "reasons" in feedback and isinstance(feedback["reasons"], list):
+                    all_reasons.extend(feedback["reasons"])
+                
+                if "comments" in feedback and feedback["comments"]:
+                    all_comments.append(feedback["comments"])
+                
+                if "user_email" in feedback and feedback["user_email"]:
+                    users_with_feedback.add(feedback["user_email"])
+            
+            # Show reason frequency
+            if all_reasons:
+                reason_counts = {}
+                for reason in all_reasons:
+                    reason_counts[reason] = reason_counts.get(reason, 0) + 1
+                
+                st.write("**Most Common Reasons:**")
+                sorted_reasons = sorted(reason_counts.items(), key=lambda x: x[1], reverse=True)
+                for reason, count in sorted_reasons[:10]:
+                    st.write(f"  - {reason}: {count} times")
+            
+            st.write(f"**Users who gave feedback: {len(users_with_feedback)}**")
+            st.write(f"**Feedbacks with comments: {len(all_comments)}**")
+            
+            if all_comments:
+                st.write("**Sample Comments:**")
+                for comment in all_comments[:5]:
+                    st.write(f"  - {comment}")
+        
+    except Exception as e:
+        st.error(f"Error examining feedbacks structure: {str(e)}")
+
+
+def get_moderator_feedback_mapping():
+    """
+    Maps moderator feedbacks across 3 collections:
+    1. bonus_credit_tracker (type: "feedback") → task_ids
+    2. tweets (stage: "replied") → queued_fact_check_tasks.task_id matching step 1
+    3. query_new → feedbacks for matched task_ids
+    
+    Returns:
+        list: List of tweet-feedback mappings with tweet details and feedback summaries
+    """
+    try:
+        # Get all collections
+        bonus_collection = get_bonus_credit_tracker_collection()
+        tweets_collection = get_tweets_collection()
+        query_collection = get_query_new_collection()
+        
+        if any(collection is None for collection in [bonus_collection, tweets_collection, query_collection]):
+            st.error("Failed to connect to one or more collections")
+            return []
+        
+        # Step 1: Get all task_ids from bonus_credit_tracker with type: "feedback"
+        feedback_task_ids = []
+        bonus_docs = bonus_collection.find({"type": "feedback"}, {"task_id": 1})
+        for doc in bonus_docs:
+            if doc and "task_id" in doc and doc["task_id"]:
+                feedback_task_ids.append(doc["task_id"])
+        
+        if not feedback_task_ids:
+            st.info("No feedback task_ids found in bonus_credit_tracker")
+            return []
+        
+        # Step 2: Find replied tweets that have these task_ids in queued_fact_check_tasks
+        replied_tweets = []
+        tweets_cursor = tweets_collection.find(
+            {"stage": "replied", "queued_fact_check_tasks": {"$exists": True, "$ne": None}},
+            {
+                "created_at": 1,
+                "mention_tweet": 1,
+                "parent_tweet": 1,
+                "tagger.username": 1,
+                "queued_fact_check_tasks": 1,
+                "fact_check_summary": 1
+            }
+        )
+        
+        for tweet_doc in tweets_cursor:
+            if not tweet_doc or "queued_fact_check_tasks" not in tweet_doc:
+                continue
+                
+            tweet_task_ids = []
+            queued_tasks = tweet_doc.get("queued_fact_check_tasks", [])
+            
+            # Check if queued_fact_check_tasks exists and is a list
+            if isinstance(queued_tasks, list):
+                for task in queued_tasks:
+                    if (isinstance(task, dict) and 
+                        "task_id" in task and 
+                        task["task_id"] and 
+                        task["task_id"] in feedback_task_ids):
+                        tweet_task_ids.append(task["task_id"])
+            
+            if tweet_task_ids:
+                replied_tweets.append({
+                    "tweet_doc": tweet_doc,
+                    "matching_task_ids": tweet_task_ids
+                })
+        
+        # Step 3: Get feedbacks from query_new for all matching task_ids
+        all_task_ids = []
+        for tweet_data in replied_tweets:
+            all_task_ids.extend(tweet_data["matching_task_ids"])
+        
+        # Remove duplicates
+        unique_task_ids = list(set(all_task_ids))
+        
+        # Get feedbacks from query_new
+        feedback_docs = {}
+        if unique_task_ids:
+            query_cursor = query_collection.find(
+                {"task_id": {"$in": unique_task_ids}},
+                {"task_id": 1, "feedbacks": 1, "dislikes": 1}
+            )
+            
+            for doc in query_cursor:
+                if doc and "task_id" in doc:
+                    feedback_docs[doc["task_id"]] = doc
+        
+        # Step 4: Create final mapping
+        tweet_feedback_mappings = []
+        for tweet_data in replied_tweets:
+            tweet_doc = tweet_data["tweet_doc"]
+            tweet_feedbacks = []
+            
+            for task_id in tweet_data["matching_task_ids"]:
+                if task_id in feedback_docs:
+                    feedback_doc = feedback_docs[task_id]
+                    tweet_feedbacks.append({
+                        "task_id": task_id,
+                        "feedbacks": feedback_doc.get("feedbacks", []),
+                        "dislikes": feedback_doc.get("dislikes", 0)
+                    })
+            
+            if tweet_feedbacks:
+                tweet_feedback_mappings.append({
+                    "tweet": {
+                        "created_at": tweet_doc.get("created_at"),
+                        "mention_tweet": tweet_doc.get("mention_tweet", ""),
+                        "parent_tweet": tweet_doc.get("parent_tweet", ""),
+                        "tagger_username": tweet_doc.get("tagger", {}).get("username", "Unknown"),
+                        "fact_check_summary": tweet_doc.get("fact_check_summary", "")
+                    },
+                    "feedbacks": tweet_feedbacks
+                })
+        
+        # Single concise status message
+        st.success(f"Found {len(tweet_feedback_mappings)} replied tweets with {len(feedback_docs)} feedback tasks")
+        return tweet_feedback_mappings
+        
+    except Exception as e:
+        st.error(f"Error in moderator feedback mapping: {str(e)}")
+        return []
 
 
 def calculate_response_time_stats(collection, days=30):
@@ -775,6 +1033,203 @@ def show_twitter_bot_analytics():
         else:
             st.info("No tagger data available for the selected period.")
     
+    # Moderator Feedback Analytics Section
+    st.subheader("Moderator Feedback from Replied Tweets")
+    
+    with st.spinner("Loading moderator feedback data..."):
+        feedback_data = get_moderator_feedback_mapping()
+    
+    if feedback_data:
+        # Calculate summary statistics
+        total_tweets = len(feedback_data)
+        total_feedbacks = sum(len(tweet_data["feedbacks"]) for tweet_data in feedback_data)
+        total_task_ids = sum(len(tweet_data["feedbacks"]) for tweet_data in feedback_data)
+        
+        # Collect all feedbacks for analysis
+        all_feedbacks = []
+        all_reasons = []
+        all_comments = []
+        users_with_feedback = set()
+        
+        for tweet_data in feedback_data:
+            for feedback_group in tweet_data["feedbacks"]:
+                feedbacks_array = feedback_group.get("feedbacks", [])
+                for feedback in feedbacks_array:
+                    all_feedbacks.append(feedback)
+                    
+                    # Extract reasons (ignore "Share" as requested)
+                    if "reasons" in feedback and isinstance(feedback["reasons"], list):
+                        non_share_reasons = [r for r in feedback["reasons"] if r.lower() != "share"]
+                        all_reasons.extend(non_share_reasons)
+                    
+                    # Extract comments
+                    if "comments" in feedback and feedback["comments"]:
+                        all_comments.append(feedback["comments"])
+                    
+                    # Extract user emails
+                    if "user_email" in feedback and feedback["user_email"]:
+                        users_with_feedback.add(feedback["user_email"])
+        
+        # Key Metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric(
+                label="Tweets with Feedback",
+                value=total_tweets,
+                help="Number of replied tweets that received moderator feedback"
+            )
+        
+        with col2:
+            st.metric(
+                label="Total Feedbacks",
+                value=len(all_feedbacks),
+                help="Total number of feedback entries received"
+            )
+        
+        with col3:
+            st.metric(
+                label="Active Moderators",
+                value=len(users_with_feedback),
+                help="Number of unique users who provided feedback"
+            )
+        
+        with col4:
+            st.metric(
+                label="Comments Provided",
+                value=len(all_comments),
+                help="Number of feedbacks that included written comments"
+            )
+        
+        # Feedback Analysis Charts
+        if all_reasons:            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Reasons distribution pie chart
+                reason_counts = {}
+                for reason in all_reasons:
+                    reason_counts[reason] = reason_counts.get(reason, 0) + 1
+                
+                if reason_counts:
+                    
+                    reasons_df = pd.DataFrame(list(reason_counts.items()), columns=['Reason', 'Count'])
+                    reasons_df = reasons_df.sort_values('Count', ascending=False)
+                    
+                    fig_reasons = px.pie(
+                        reasons_df, 
+                        values='Count', 
+                        names='Reason',
+                        title="Feedback Reasons Distribution",
+                        color_discrete_sequence=px.colors.qualitative.Set3
+                    )
+                    fig_reasons.update_traces(textposition='inside', textinfo='percent+label')
+                    st.plotly_chart(fig_reasons, use_container_width=True)
+            
+            with col2:
+                # Top reasons bar chart
+                if reason_counts:
+                    top_reasons = sorted(reason_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                    reasons_df = pd.DataFrame(top_reasons, columns=['Reason', 'Count'])
+                    
+                    fig_bar = px.bar(
+                        reasons_df,
+                        x='Count',
+                        y='Reason',
+                        orientation='h',
+                        title="Top 10 Feedback Reasons",
+                        color='Count',
+                        color_continuous_scale='Blues'
+                    )
+                    fig_bar.update_layout(yaxis={'categoryorder': 'total ascending'})
+                    st.plotly_chart(fig_bar, use_container_width=True)
+        
+        # Top Discussed Tweets
+        st.subheader("🔥 Most Discussed Tweets")
+        
+        # Calculate feedback count per tweet
+        tweet_feedback_counts = []
+        for tweet_data in feedback_data:
+            tweet_info = tweet_data["tweet"]
+            feedback_count = sum(len(feedback_group.get("feedbacks", [])) for feedback_group in tweet_data["feedbacks"])
+            
+            tweet_feedback_counts.append({
+                "Tweet": tweet_info.get("mention_tweet", "N/A")[:50] + "..." if len(tweet_info.get("mention_tweet", "")) > 50 else tweet_info.get("mention_tweet", "N/A"),
+                "Parent Tweet": tweet_info.get("parent_tweet", "N/A")[:50] + "..." if len(tweet_info.get("parent_tweet", "")) > 50 else tweet_info.get("parent_tweet", "N/A"),
+                "Tagger": tweet_info.get("tagger_username", "Unknown"),
+                "Feedback Count": feedback_count,
+                "Created At": tweet_info.get("created_at", "N/A")
+            })
+        
+        # Sort by feedback count and show top 10
+        tweet_feedback_counts.sort(key=lambda x: x["Feedback Count"], reverse=True)
+        top_tweets_df = pd.DataFrame(tweet_feedback_counts[:10])
+        
+        if not top_tweets_df.empty:
+            st.dataframe(
+                top_tweets_df,
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("No tweet feedback data available for display.")
+        
+        # Detailed Feedback Explorer
+        st.subheader("🔍 Detailed Feedback Explorer")
+        
+        with st.expander("View All Tweet Feedbacks", expanded=False):
+            if feedback_data:
+                # Pagination
+                items_per_page = 5
+                total_pages = (len(feedback_data) + items_per_page - 1) // items_per_page
+                
+                if total_pages > 1:
+                    page = st.selectbox("Select Page", range(1, total_pages + 1), key="feedback_page")
+                else:
+                    page = 1
+                
+                start_idx = (page - 1) * items_per_page
+                end_idx = min(start_idx + items_per_page, len(feedback_data))
+                
+                st.write(f"Showing tweets {start_idx + 1}-{end_idx} of {len(feedback_data)}")
+                
+                for i in range(start_idx, end_idx):
+                    tweet_data = feedback_data[i]
+                    tweet_info = tweet_data["tweet"]
+                    
+                    st.write(f"**Tweet {i + 1}:**")
+                    st.write(f"- **Mention Tweet:** {tweet_info.get('mention_tweet', 'N/A')}")
+                    st.write(f"- **Parent Tweet:** {tweet_info.get('parent_tweet', 'N/A')}")
+                    st.write(f"- **Tagger:** {tweet_info.get('tagger_username', 'Unknown')}")
+                    st.write(f"- **Created:** {tweet_info.get('created_at', 'N/A')}")
+                    
+                    # Show feedbacks for this tweet
+                    for j, feedback_group in enumerate(tweet_data["feedbacks"]):
+                        st.write(f"  **Task ID {j + 1}:** {feedback_group.get('task_id', 'N/A')}")
+                        st.write(f"  **Dislikes:** {feedback_group.get('dislikes', 0)}")
+                        
+                        feedbacks_array = feedback_group.get("feedbacks", [])
+                        if feedbacks_array:
+                            st.write("  **Feedbacks:**")
+                            for k, feedback in enumerate(feedbacks_array):
+                                st.write(f"    Feedback {k + 1}:")
+                                if "user_email" in feedback:
+                                    st.write(f"      - User: {feedback['user_email']}")
+                                if "reasons" in feedback and feedback["reasons"]:
+                                    non_share_reasons = [r for r in feedback["reasons"] if r.lower() != "share"]
+                                    if non_share_reasons:
+                                        st.write(f"      - Reasons: {', '.join(non_share_reasons)}")
+                                if "comments" in feedback and feedback["comments"]:
+                                    st.write(f"      - Comments: {feedback['comments']}")
+                        else:
+                            st.write("  No feedbacks available")
+                    
+                    st.write("---")
+            else:
+                st.info("No feedback data available.")
+    else:
+        st.info("No moderator feedback data available.")
+
     # Raw data section
     with st.expander("Raw Data"):
         st.subheader("Recent Tweet Data")

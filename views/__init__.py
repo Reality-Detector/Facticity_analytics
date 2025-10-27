@@ -10,6 +10,7 @@ from .blacklist_view import show_blacklist_view
 from .query_explorer_view import show_query_explorer_view
 from .overview_dashboard import show_overview_view
 from .twitter_bot_analytics import show_twitter_bot_analytics
+from .moderator_feedback_analytics import show_moderator_feedback_analytics
 
 __all__ = [
     'show_metrics_view',
@@ -20,5 +21,6 @@ __all__ = [
     'show_blacklist_view',
     'show_query_explorer_view',
     'show_overview_view',
-    'show_twitter_bot_analytics'
+    'show_twitter_bot_analytics',
+    'show_moderator_feedback_analytics'
 ]

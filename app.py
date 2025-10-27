@@ -52,6 +52,7 @@ from views import (
     show_query_explorer_view,
     show_overview_view,
     show_twitter_bot_analytics,
+    show_moderator_feedback_analytics,
 )
 
 # Load environment variables
@@ -71,6 +72,7 @@ view_options = {
     "Query Explorer": show_query_explorer_view,
     "Email Blacklist": show_blacklist_view,
     "Twitter Bot Analytics": show_twitter_bot_analytics,
+    "Moderator Feedback Analytics": show_moderator_feedback_analytics,
 }
 selected_view = st.sidebar.selectbox(
     "Select View",
