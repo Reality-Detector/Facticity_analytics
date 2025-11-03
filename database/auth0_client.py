@@ -15,6 +15,7 @@ from auth0.v3.authentication import GetToken
 import os
 
 from config import AUTH0_DOMAIN, CLIENT_ID, CLIENT_SECRET, API_AUDIENCE
+from dbutils.DocumentDB import document_db_web3
 
 
 
@@ -170,9 +171,44 @@ def get_auth0_user_list():
     return pd.DataFrame()
 
 
+@st.cache_data(ttl=10800)
+def get_web3_user_list():
+    """
+    Retrieve web3 users from the users collection.
+    
+    Returns:
+        DataFrame: DataFrame with web3 user data including created_at
+    """
+    try:
+        client = document_db_web3.get_client()
+        users_collection = client["facticity"]["users"]
+        
+        # Fetch all users with created_at field
+        users = list(users_collection.find(
+            {"created_at": {"$exists": True}},
+            {"created_at": 1, "_id": 0}
+        ))
+        
+        if not users:
+            return pd.DataFrame(columns=['created_at'])
+        
+        df = pd.DataFrame(users)
+        
+        # Convert created_at to datetime
+        if "created_at" in df.columns:
+            df["created_at"] = pd.to_datetime(
+                df["created_at"], errors="coerce", utc=True)
+        
+        return df
+        
+    except Exception as e:
+        st.warning(f"Error fetching web3 users: {e}")
+        return pd.DataFrame(columns=['created_at'])
+
+
 def aggregate_auth0_daily(auth0_df, window_start, window_end):
     """
-    Aggregates Auth0 new and cumulative users by day.
+    Aggregates Auth0 and web3 new and cumulative users by day.
     
     Args:
         auth0_df: DataFrame with Auth0 data
@@ -180,13 +216,30 @@ def aggregate_auth0_daily(auth0_df, window_start, window_end):
         window_end: End date in ISO format
         
     Returns:
-        DataFrame: DataFrame with daily new and total users
+        DataFrame: DataFrame with daily new and total users (combined Auth0 + web3)
     """
-    if auth0_df is None or auth0_df.empty:
+    # Get web3 users
+    web3_df = get_web3_user_list()
+    
+    # Combine Auth0 and web3 users
+    combined_df = None
+    if auth0_df is not None and not auth0_df.empty:
+        auth0_clean = auth0_df.copy().dropna(subset=["created_at"])
+        if not auth0_clean.empty:
+            combined_df = auth0_clean[["created_at"]].copy()
+    
+    if web3_df is not None and not web3_df.empty:
+        web3_clean = web3_df.copy().dropna(subset=["created_at"])
+        if not web3_clean.empty:
+            if combined_df is not None:
+                combined_df = pd.concat([combined_df, web3_clean[["created_at"]]], ignore_index=True)
+            else:
+                combined_df = web3_clean[["created_at"]].copy()
+    
+    if combined_df is None or combined_df.empty:
         return pd.DataFrame(columns=['new_users', 'total_users'])
     
-    df = auth0_df.copy().dropna(
-        subset=["created_at"]).sort_values("created_at")
+    df = combined_df.sort_values("created_at")
     df["created_at"] = pd.to_datetime(df["created_at"], utc=True)
     
     # Group by day
@@ -214,7 +267,7 @@ def aggregate_auth0_daily(auth0_df, window_start, window_end):
 
 def aggregate_auth0_weekly(auth0_df, window_start, window_end):
     """
-    Aggregates Auth0 new and cumulative users by week ending on Sunday.
+    Aggregates Auth0 and web3 new and cumulative users by week ending on Sunday.
     
     Args:
         auth0_df: DataFrame with Auth0 data
@@ -222,13 +275,30 @@ def aggregate_auth0_weekly(auth0_df, window_start, window_end):
         window_end: End date in ISO format
         
     Returns:
-        DataFrame: DataFrame with weekly new and total users
+        DataFrame: DataFrame with weekly new and total users (combined Auth0 + web3)
     """
-    if auth0_df is None or auth0_df.empty:
+    # Get web3 users
+    web3_df = get_web3_user_list()
+    
+    # Combine Auth0 and web3 users
+    combined_df = None
+    if auth0_df is not None and not auth0_df.empty:
+        auth0_clean = auth0_df.copy().dropna(subset=["created_at"])
+        if not auth0_clean.empty:
+            combined_df = auth0_clean[["created_at"]].copy()
+    
+    if web3_df is not None and not web3_df.empty:
+        web3_clean = web3_df.copy().dropna(subset=["created_at"])
+        if not web3_clean.empty:
+            if combined_df is not None:
+                combined_df = pd.concat([combined_df, web3_clean[["created_at"]]], ignore_index=True)
+            else:
+                combined_df = web3_clean[["created_at"]].copy()
+    
+    if combined_df is None or combined_df.empty:
         return pd.DataFrame(columns=['new_users', 'total_users'])
     
-    df = auth0_df.copy().dropna(
-        subset=["created_at"]).sort_values("created_at")
+    df = combined_df.sort_values("created_at")
     df["created_at"] = pd.to_datetime(df["created_at"], utc=True)
 
     # Calculate end of week (Sunday) for each user
@@ -268,7 +338,7 @@ def aggregate_auth0_weekly(auth0_df, window_start, window_end):
 
 def aggregate_auth0_monthly(auth0_df, window_start, window_end):
     """
-    Aggregates Auth0 new and cumulative users by month.
+    Aggregates Auth0 and web3 new and cumulative users by month.
     
     Args:
         auth0_df: DataFrame with Auth0 data
@@ -276,13 +346,30 @@ def aggregate_auth0_monthly(auth0_df, window_start, window_end):
         window_end: End date in ISO format
         
     Returns:
-        DataFrame: DataFrame with monthly new and total users
+        DataFrame: DataFrame with monthly new and total users (combined Auth0 + web3)
     """
-    if auth0_df is None or auth0_df.empty:
+    # Get web3 users
+    web3_df = get_web3_user_list()
+    
+    # Combine Auth0 and web3 users
+    combined_df = None
+    if auth0_df is not None and not auth0_df.empty:
+        auth0_clean = auth0_df.copy().dropna(subset=["created_at"])
+        if not auth0_clean.empty:
+            combined_df = auth0_clean[["created_at"]].copy()
+    
+    if web3_df is not None and not web3_df.empty:
+        web3_clean = web3_df.copy().dropna(subset=["created_at"])
+        if not web3_clean.empty:
+            if combined_df is not None:
+                combined_df = pd.concat([combined_df, web3_clean[["created_at"]]], ignore_index=True)
+            else:
+                combined_df = web3_clean[["created_at"]].copy()
+    
+    if combined_df is None or combined_df.empty:
         return pd.DataFrame(columns=['new_users', 'total_users'])
     
-    df = auth0_df.copy().dropna(
-        subset=["created_at"]).sort_values("created_at")
+    df = combined_df.sort_values("created_at")
     df["created_at"] = pd.to_datetime(df["created_at"], utc=True)
     
     # Group by month
@@ -310,7 +397,7 @@ def aggregate_auth0_monthly(auth0_df, window_start, window_end):
 
 def aggregate_auth0_quarterly(auth0_df, window_start, window_end):
     """
-    Derives quarterly new and cumulative user counts with custom quarters.
+    Derives quarterly new and cumulative user counts with custom quarters (Auth0 + web3).
     
     Args:
         auth0_df: DataFrame with Auth0 data
@@ -318,16 +405,33 @@ def aggregate_auth0_quarterly(auth0_df, window_start, window_end):
         window_end: End date in ISO format
         
     Returns:
-        DataFrame: DataFrame with quarterly new and total users
+        DataFrame: DataFrame with quarterly new and total users (combined Auth0 + web3)
     """
-    if auth0_df is None or auth0_df.empty:
+    # Get web3 users
+    web3_df = get_web3_user_list()
+    
+    # Combine Auth0 and web3 users
+    combined_df = None
+    if auth0_df is not None and not auth0_df.empty:
+        auth0_clean = auth0_df.copy().dropna(subset=["created_at"])
+        if not auth0_clean.empty:
+            combined_df = auth0_clean[["created_at"]].copy()
+    
+    if web3_df is not None and not web3_df.empty:
+        web3_clean = web3_df.copy().dropna(subset=["created_at"])
+        if not web3_clean.empty:
+            if combined_df is not None:
+                combined_df = pd.concat([combined_df, web3_clean[["created_at"]]], ignore_index=True)
+            else:
+                combined_df = web3_clean[["created_at"]].copy()
+    
+    if combined_df is None or combined_df.empty:
         return pd.DataFrame(columns=['new_users', 'total_users'])
     
     from utils.date_utils import quarter_sort_key
     
     # Prepare monthly data
-    df = auth0_df.copy().dropna(
-        subset=["created_at"]).sort_values("created_at")
+    df = combined_df.sort_values("created_at")
     df["created_at"] = pd.to_datetime(
         df["created_at"], utc=True)
     

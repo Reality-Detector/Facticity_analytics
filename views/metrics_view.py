@@ -225,7 +225,7 @@ def show_metrics_view():
     # Weekly Chart
     if weekly_results:
         generate_chart(
-            title="Weekly Queries & Auth0 Users",
+            title="Weekly Queries & Total Users",
             x_labels=[doc["_id"] for doc in weekly_results],
             y_queries=[doc["query_count"] for doc in weekly_results],
             auth0_overlay=aggregate_auth0_weekly(
@@ -237,7 +237,7 @@ def show_metrics_view():
     # Monthly Chart
     if monthly_results:
         generate_chart(
-            title="Monthly Queries & Auth0 Users",
+            title="Monthly Queries & Total Users",
             x_labels=[
                 f'{doc["_id"]["month"]:02d}/{doc["_id"]["year"]}' for doc in monthly_results],
             y_queries=[doc["query_count"] for doc in monthly_results],
@@ -270,7 +270,7 @@ def show_metrics_view():
 
         # Generate chart
         generate_chart(
-            title="Quarterly Queries & Auth0 Users",
+            title="Quarterly Queries & Total Users",
             x_labels=sorted_labels,
             y_queries=sorted_queries,
             auth0_overlay=auth0_quarterly,
