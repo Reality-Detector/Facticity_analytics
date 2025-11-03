@@ -378,6 +378,7 @@ def aggregate_daily_users_by_url(start_date, end_date, exclude_blacklisted=False
 def aggregate_weekly_with_users(start_date, end_date, exclude_blacklisted=False):
     """
     Aggregates queries and distinct user counts by week, grouped by the end of the week (Sunday).
+    Includes data from both web2 and web3 databases.
     
     Args:
         start_date: Start date in ISO format
@@ -387,8 +388,6 @@ def aggregate_weekly_with_users(start_date, end_date, exclude_blacklisted=False)
     Returns:
         list: List of aggregation results with _id (week end date), query_count, and user_count
     """
-    collection = get_db_connection()
-
     match_condition = {"timestamp": {"$gte": start_date, "$lt": end_date}}
 
     # Add email/domain exclusion if requested
@@ -439,13 +438,74 @@ def aggregate_weekly_with_users(start_date, end_date, exclude_blacklisted=False)
         {"$addFields": {"user_count": {"$size": "$users"}}},
         {"$sort": {"_id": 1}}
     ]
-    return list(collection.aggregate(pipeline))
+    
+    # Query both web2 and web3 databases
+    results_web2 = []
+    results_web3 = []
+    
+    try:
+        client_web2 = document_db_web2.get_client()
+        collection_web2 = client_web2["facticity"]["query_new"]
+        results_web2 = list(collection_web2.aggregate(pipeline))
+    except Exception as e:
+        st.warning(f"Error querying web2 database: {e}")
+    
+    try:
+        client_web3 = document_db_web3.get_client()
+        collection_web3 = client_web3["facticity"]["query_new"]
+        results_web3 = list(collection_web3.aggregate(pipeline))
+    except Exception as e:
+        st.warning(f"Error querying web3 database: {e}")
+    
+    # Combine results by merging data for the same week end dates
+    combined_results = {}
+    
+    # Process web2 results
+    for result in results_web2:
+        week_end = result["_id"]
+        if week_end not in combined_results:
+            combined_results[week_end] = {
+                "_id": week_end,
+                "query_count": 0,
+                "users": set()
+            }
+        combined_results[week_end]["query_count"] += result["query_count"]
+        # MongoDB $addToSet returns a list, convert to set and update
+        users_list = result.get("users", [])
+        combined_results[week_end]["users"].update(users_list)
+    
+    # Process web3 results
+    for result in results_web3:
+        week_end = result["_id"]
+        if week_end not in combined_results:
+            combined_results[week_end] = {
+                "_id": week_end,
+                "query_count": 0,
+                "users": set()
+            }
+        combined_results[week_end]["query_count"] += result["query_count"]
+        # MongoDB $addToSet returns a list, convert to set and update
+        users_list = result.get("users", [])
+        combined_results[week_end]["users"].update(users_list)
+    
+    # Convert sets to lists and calculate user_count
+    final_results = []
+    for week_end in sorted(combined_results.keys()):
+        result = combined_results[week_end]
+        final_results.append({
+            "_id": result["_id"],
+            "query_count": result["query_count"],
+            "user_count": len(result["users"])
+        })
+    
+    return final_results
 
 
 @st.cache_data(ttl=10800)
 def aggregate_monthly_with_users(start_date, end_date, exclude_blacklisted=False):
     """
     Aggregates queries and distinct user counts by month.
+    Includes data from both web2 and web3 databases.
     
     Args:
         start_date: Start date in ISO format
@@ -455,8 +515,6 @@ def aggregate_monthly_with_users(start_date, end_date, exclude_blacklisted=False
     Returns:
         list: List of aggregation results with _id (year/month), query_count, and user_count
     """
-    collection = get_db_connection()
-
     match_condition = {"timestamp": {"$gte": start_date, "$lt": end_date}}
 
     # Add email/domain exclusion if requested
@@ -486,13 +544,74 @@ def aggregate_monthly_with_users(start_date, end_date, exclude_blacklisted=False
         {"$addFields": {"user_count": {"$size": "$users"}}},
         {"$sort": {"_id.year": 1, "_id.month": 1}}
     ]
-    return list(collection.aggregate(pipeline))
+    
+    # Query both web2 and web3 databases
+    results_web2 = []
+    results_web3 = []
+    
+    try:
+        client_web2 = document_db_web2.get_client()
+        collection_web2 = client_web2["facticity"]["query_new"]
+        results_web2 = list(collection_web2.aggregate(pipeline))
+    except Exception as e:
+        st.warning(f"Error querying web2 database: {e}")
+    
+    try:
+        client_web3 = document_db_web3.get_client()
+        collection_web3 = client_web3["facticity"]["query_new"]
+        results_web3 = list(collection_web3.aggregate(pipeline))
+    except Exception as e:
+        st.warning(f"Error querying web3 database: {e}")
+    
+    # Combine results by merging data for the same year/month
+    combined_results = {}
+    
+    # Process web2 results
+    for result in results_web2:
+        year_month_key = (result["_id"]["year"], result["_id"]["month"])
+        if year_month_key not in combined_results:
+            combined_results[year_month_key] = {
+                "_id": result["_id"],
+                "query_count": 0,
+                "users": set()
+            }
+        combined_results[year_month_key]["query_count"] += result["query_count"]
+        # MongoDB $addToSet returns a list, convert to set and update
+        users_list = result.get("users", [])
+        combined_results[year_month_key]["users"].update(users_list)
+    
+    # Process web3 results
+    for result in results_web3:
+        year_month_key = (result["_id"]["year"], result["_id"]["month"])
+        if year_month_key not in combined_results:
+            combined_results[year_month_key] = {
+                "_id": result["_id"],
+                "query_count": 0,
+                "users": set()
+            }
+        combined_results[year_month_key]["query_count"] += result["query_count"]
+        # MongoDB $addToSet returns a list, convert to set and update
+        users_list = result.get("users", [])
+        combined_results[year_month_key]["users"].update(users_list)
+    
+    # Convert sets to lists and calculate user_count
+    final_results = []
+    for year_month_key in sorted(combined_results.keys()):
+        result = combined_results[year_month_key]
+        final_results.append({
+            "_id": result["_id"],
+            "query_count": result["query_count"],
+            "user_count": len(result["users"])
+        })
+    
+    return final_results
 
 
 @st.cache_data(ttl=10800)
 def aggregate_quarterly_with_users(start_date, end_date, exclude_blacklisted=False):
     """
     Aggregates queries and distinct user counts by quarter with custom labels.
+    Includes data from both web2 and web3 databases.
     
     Args:
         start_date: Start date in ISO format
@@ -502,8 +621,6 @@ def aggregate_quarterly_with_users(start_date, end_date, exclude_blacklisted=Fal
     Returns:
         list: List of aggregation results with _id (quarter label), query_count, and user_count
     """
-    collection = get_db_connection()
-
     match_condition = {"timestamp": {"$gte": start_date, "$lt": end_date}}
 
     # Add email/domain exclusion if requested
@@ -566,12 +683,73 @@ def aggregate_quarterly_with_users(start_date, end_date, exclude_blacklisted=Fal
         {"$addFields": {"user_count": {"$size": "$users"}}},
         {"$sort": {"_id": 1}}
     ]
-    return list(collection.aggregate(pipeline))
+    
+    # Query both web2 and web3 databases
+    results_web2 = []
+    results_web3 = []
+    
+    try:
+        client_web2 = document_db_web2.get_client()
+        collection_web2 = client_web2["facticity"]["query_new"]
+        results_web2 = list(collection_web2.aggregate(pipeline))
+    except Exception as e:
+        st.warning(f"Error querying web2 database: {e}")
+    
+    try:
+        client_web3 = document_db_web3.get_client()
+        collection_web3 = client_web3["facticity"]["query_new"]
+        results_web3 = list(collection_web3.aggregate(pipeline))
+    except Exception as e:
+        st.warning(f"Error querying web3 database: {e}")
+    
+    # Combine results by merging data for the same quarter label
+    combined_results = {}
+    
+    # Process web2 results
+    for result in results_web2:
+        label = result["_id"]
+        if label not in combined_results:
+            combined_results[label] = {
+                "_id": label,
+                "query_count": 0,
+                "users": set()
+            }
+        combined_results[label]["query_count"] += result["query_count"]
+        # MongoDB $addToSet returns a list, convert to set and update
+        users_list = result.get("users", [])
+        combined_results[label]["users"].update(users_list)
+    
+    # Process web3 results
+    for result in results_web3:
+        label = result["_id"]
+        if label not in combined_results:
+            combined_results[label] = {
+                "_id": label,
+                "query_count": 0,
+                "users": set()
+            }
+        combined_results[label]["query_count"] += result["query_count"]
+        # MongoDB $addToSet returns a list, convert to set and update
+        users_list = result.get("users", [])
+        combined_results[label]["users"].update(users_list)
+    
+    # Convert sets to lists and calculate user_count
+    final_results = []
+    for label in sorted(combined_results.keys()):
+        result = combined_results[label]
+        final_results.append({
+            "_id": result["_id"],
+            "query_count": result["query_count"],
+            "user_count": len(result["users"])
+        })
+    
+    return final_results
 
 
 def get_mongo_active_users(cutoff, exclude_blacklisted=False):
     """
     Gets active users from MongoDB after a specific cutoff date.
+    Includes data from both web2 and web3 databases.
     
     Args:
         cutoff: Datetime cutoff
@@ -580,8 +758,6 @@ def get_mongo_active_users(cutoff, exclude_blacklisted=False):
     Returns:
         set: Set of active user emails
     """
-    collection = get_db_connection()
-
     query_filter = {"timestamp": {"$gte": cutoff.isoformat()}, "userEmail": {
         "$exists": True}}
 
@@ -600,10 +776,28 @@ def get_mongo_active_users(cutoff, exclude_blacklisted=False):
         query_filter = {"$and": [query_filter,
                                  email_exclusion, *domain_exclusions]}
 
-    cursor = collection.find(query_filter, {"userEmail": 1})
+    # Query both web2 and web3 databases
+    active_users = set()
+    
+    try:
+        client_web2 = document_db_web2.get_client()
+        collection_web2 = client_web2["facticity"]["query_new"]
+        cursor_web2 = collection_web2.find(query_filter, {"userEmail": 1})
+        # Build a set of emails (normalized to lowercase) from web2
+        active_users.update(doc["userEmail"].lower() for doc in cursor_web2 if "userEmail" in doc)
+    except Exception as e:
+        st.warning(f"Error querying web2 database: {e}")
+    
+    try:
+        client_web3 = document_db_web3.get_client()
+        collection_web3 = client_web3["facticity"]["query_new"]
+        cursor_web3 = collection_web3.find(query_filter, {"userEmail": 1})
+        # Build a set of emails (normalized to lowercase) from web3
+        active_users.update(doc["userEmail"].lower() for doc in cursor_web3 if "userEmail" in doc)
+    except Exception as e:
+        st.warning(f"Error querying web3 database: {e}")
 
-    # Build a set of emails (normalized to lowercase)
-    return set(doc["userEmail"].lower() for doc in cursor if "userEmail" in doc)
+    return active_users
 
 def fetch_all_emails_with_timestamps(collection, exclude_blacklisted=False):
     """
