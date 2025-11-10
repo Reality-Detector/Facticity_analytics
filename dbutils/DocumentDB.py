@@ -14,11 +14,10 @@ class DocumentDB:
         'api': 'aiseer-documentdb-2.c3gsycya27j9.us-west-2.docdb.amazonaws.com',
         'web3': 'aiseer-documentdb-3.c3gsycya27j9.us-west-2.docdb.amazonaws.com'
     }
-
-     
-    # Direct MongoDB connection for web3 (no SSH tunnel)
-    WEB3_DIRECT_URI = "mongodb://prodadmin:u43ECwAf1j7RnqnP@ec2-54-213-32-246.us-west-2.compute.amazonaws.com:27017/?directConnection=true&retryWrites=false"
     
+    # Direct MongoDB connections (no SSH tunnel)
+    WEB2_DIRECT_URI = "mongodb://prodadmin:u43ECwAf1j7RnqnP@ec2-54-201-211-20.us-west-2.compute.amazonaws.com:27017/?directConnection=true&retryWrites=false"
+    WEB3_DIRECT_URI = "mongodb://prodadmin:u43ECwAf1j7RnqnP@ec2-54-213-32-246.us-west-2.compute.amazonaws.com:27017/?directConnection=true&retryWrites=false"
     
     def __new__(cls, name='web2'):
         if name not in cls._instances:
@@ -54,14 +53,73 @@ class DocumentDB:
             
             self._initialized = True
     
+    def _log_pool_stats(self):
+        """Log connection pool statistics for monitoring"""
+        try:
+            if self._client:
+                # Get pool information from client
+                nodes = list(self._client.nodes)
+                if nodes:
+                    print(f"🏊 Connection Pool Status:")
+                    print(f"  • Active Nodes: {len(nodes)}")
+                    print(f"  • Pool Configuration: Optimized for SSH tunnels")
+                    print(f"  • Health Check: Connection validated ✅")
+                else:
+                    print("⚠️  No active nodes in connection pool")
+        except Exception as e:
+            print(f"⚠️  Could not retrieve pool stats: {e}")
+    
+    def check_connection_health(self):
+        """Check if the database connection is healthy"""
+        try:
+            if not self._client:
+                return False
+            
+            # Ping with timeout to check health
+            result = self._client.admin.command('ping', maxTimeMS=1000)
+            return result.get('ok') == 1
+            
+        except Exception as e:
+            print(f"🏥 Connection health check failed: {e}")
+            return False
+    
+    def get_pool_info(self):
+        """Get detailed connection pool information"""
+        try:
+            if not self._client:
+                return {"status": "no_client", "healthy": False}
+            
+            is_healthy = self.check_connection_health()
+            nodes = list(self._client.nodes)
+            
+            return {
+                "status": "connected" if is_healthy else "unhealthy",
+                "healthy": is_healthy,
+                "nodes_count": len(nodes),
+                "tunnel_port": self._tunnel.local_bind_port if self._tunnel else None,
+                "database_name": self.name
+            }
+            
+        except Exception as e:
+            return {"status": "error", "healthy": False, "error": str(e)}
+    
+    def get_available_port(self):
+        """Get an available port dynamically to avoid conflicts"""
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('', 0))
+            port = s.getsockname()[1]
+            print(f"🎯 Found available port: {port}")
+            return port
+
     def connect(self):
-        """Establish connection to DocumentDB (SSH tunnel for web2/api, direct for web3)"""
+        """Establish connection to DocumentDB (SSH tunnel for api, direct for web2/web3)"""
         if self._client is not None:
             print(f"🔄 Reusing existing connection to {self.name} DocumentDB")
             return self._client
         
-        # Check if this is web3 with direct connection
-        if self.name == 'web3':
+        # Check if this is web2 or web3 with direct connection
+        if self.name in ['web2', 'web3']:
             return self._connect_direct()
         else:
             return self._connect_ssh_tunnel()
@@ -69,25 +127,63 @@ class DocumentDB:
     def _connect_direct(self):
         """Direct connection to MongoDB (for web3)"""
         try:
-            print(f"Connecting directly to {self.name} MongoDB")
-            print(f"Direct connection using MongoDB URI")
+            print(f"🔌 Connecting directly to {self.name} MongoDB")
+            print(f"📡 Direct connection using MongoDB URI")
+            
+            # Connection pool settings for direct connection
+            pool_config = {
+                # Connection Pool Optimization
+                'maxPoolSize': 30,              # Higher for direct connection
+                'minPoolSize': 5,               # Maintain minimum connections
+                'maxIdleTimeMS': 120000,        # 2 minutes
+                'maxConnecting': 10,            # More concurrent connections allowed
+                
+                # Timeout Optimization
+                'serverSelectionTimeoutMS': 5000,  # 5s server selection
+                'socketTimeoutMS': 20000,          # 20s socket timeout
+                'connectTimeoutMS': 10000,         # 10s connection timeout
+                'waitQueueTimeoutMS': 5000,        # 5s queue timeout
+                
+                # Health & Monitoring
+                'heartbeatFrequencyMS': 30000,     # 30s heartbeat
+                'localThresholdMS': 15,            # 15ms local threshold
+                
+                # Retry & Recovery
+                'retryWrites': False,              # Disabled for MongoDB compatibility
+                'retryReads': True,                # Enable read retries
+            }
+            
+            print(f"📊 Connection Pool Settings (Direct):")
+            print(f"  • Max Pool Size: {pool_config['maxPoolSize']}")
+            print(f"  • Min Pool Size: {pool_config['minPoolSize']}")
+            print(f"  • Max Idle Time: {pool_config['maxIdleTimeMS']/1000}s")
+            print(f"  • Socket Timeout: {pool_config['socketTimeoutMS']/1000}s")
+            
+            # Select the appropriate URI based on database name
+            if self.name == 'web2':
+                connection_uri = self.WEB2_DIRECT_URI
+            elif self.name == 'web3':
+                connection_uri = self.WEB3_DIRECT_URI
+            else:
+                raise ValueError(f"Direct connection not configured for {self.name}")
             
             # Create MongoDB client with direct connection using URI
             self._client = MongoClient(
-                self.WEB3_DIRECT_URI,
-                maxPoolSize=30,
-                minPoolSize=5,
-                retryWrites=False
+                connection_uri,
+                **pool_config
             )
             
             # Test connection
-            print(f"Testing connection to {self.name}...")
+            print(f"🧪 Testing connection to {self.name}...")
             server_info = self._client.server_info()
-            print(f"Connected successfully to {self.name}!")
-            print(f"Server version: {server_info.get('version', 'Unknown')}")
+            print(f"✅ Connected successfully to {self.name}!")
+            print(f"📊 Server version: {server_info.get('version', 'Unknown')}")
+            
+            # Display connection pool status
+            self._log_pool_stats()
             
             # List all databases
-            print(f"\nDatabases available on {self.name}:")
+            print(f"\n📂 Databases available on {self.name}:")
             db_names = self._client.list_database_names()
             for db_name in db_names:
                 print(f"  - {db_name}")
@@ -105,46 +201,104 @@ class DocumentDB:
             print(f"🔌 Connecting to {self.name} DocumentDB: {self.DOCDB_HOST}")
             print(f"📡 Using SSH tunnel through {self.BASTION_HOST}")
             
-            # Use different local ports for each target to avoid conflicts
-            local_ports = {
-                'web2': 27020,
-                'api': 27021
+            # ========== Dynamic Port Allocation ==========
+            # Get an available port dynamically to avoid conflicts
+            local_port = self.get_available_port()
+            print(f"🔗 Using dynamic local port: {local_port}")
+            
+            # Retry SSH tunnel creation with different ports if needed
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    if attempt > 0:
+                        local_port = self.get_available_port()
+                        print(f"🔄 Retry {attempt}: Using new port {local_port}")
+                    
+                    self._tunnel = SSHTunnelForwarder(
+                        (self.BASTION_HOST, 22),
+                        ssh_username=self.BASTION_USER,
+                        ssh_private_key=self.BASTION_KEY_PATH,
+                        remote_bind_address=(self.DOCDB_HOST, self.DOCDB_PORT),
+                        local_bind_address=('localhost', local_port)
+                    )
+                    
+                    print("🚇 Starting SSH tunnel...")
+                    self._tunnel.start()
+                    print(f"✅ SSH tunnel established on localhost:{self._tunnel.local_bind_port}")
+                    break  # Success, exit retry loop
+                    
+                except Exception as tunnel_error:
+                    print(f"⚠️  SSH tunnel attempt {attempt + 1} failed: {tunnel_error}")
+                    if self._tunnel:
+                        try:
+                            self._tunnel.stop()
+                        except:
+                            pass
+                        self._tunnel = None
+                    
+                    if attempt == max_retries - 1:
+                        raise Exception(f"Failed to establish SSH tunnel after {max_retries} attempts: {tunnel_error}")
+                    
+                    import time
+                    time.sleep(1)  # Wait 1 second before retry
+            
+            print("🔐 Creating MongoDB client with optimized connection pool...")
+            
+            # Optimized connection pool settings for SSH tunnel + high concurrency
+            pool_config = {
+                # Connection Pool Optimization
+                'maxPoolSize': 15,              # Reduced for SSH tunnel stability (was 30)
+                'minPoolSize': 3,               # Maintain minimum connections (was 5)
+                'maxIdleTimeMS': 60000,         # 1 minute - longer for better reuse (was 30s)
+                'maxConnecting': 5,             # Limit concurrent connection attempts
+                
+                # Timeout Optimization
+                'serverSelectionTimeoutMS': 3000,  # 3s - faster failure detection (was 5s)
+                'socketTimeoutMS': 15000,           # 15s - longer for fact-checking operations (was 10s)
+                'connectTimeoutMS': 8000,           # 8s connection timeout (was 10s)
+                'waitQueueTimeoutMS': 3000,         # 3s queue timeout (was 5s)
+                
+                # Health & Monitoring
+                'heartbeatFrequencyMS': 30000,      # 30s heartbeat for connection health
+                'localThresholdMS': 15,             # 15ms local threshold for server selection
+                
+                # Retry & Recovery
+                'retryWrites': False,               # Disable for DocumentDB compatibility
+                'retryReads': True,                 # Enable read retries
+                # Note: maxStalenessSeconds removed - conflicts with primary read preference in DocumentDB
+                
+                # TLS & Auth
+                'tls': True,
+                'tlsCAFile': self.CA_CERT_PATH,
+                'authSource': 'admin',
+                'tlsAllowInvalidHostnames': True,
+                'directConnection': True,
             }
-            local_port = local_ports.get(self.name, 27017)
-            print(f"🔗 Local port: {local_port}")
             
-            self._tunnel = SSHTunnelForwarder(
-                (self.BASTION_HOST, 22),
-                ssh_username=self.BASTION_USER,
-                ssh_private_key=self.BASTION_KEY_PATH,
-                remote_bind_address=(self.DOCDB_HOST, self.DOCDB_PORT),
-                local_bind_address=('localhost', local_port)
-            )
+            print(f"📊 Connection Pool Settings:")
+            print(f"  • Max Pool Size: {pool_config['maxPoolSize']}")
+            print(f"  • Min Pool Size: {pool_config['minPoolSize']}")
+            print(f"  • Max Idle Time: {pool_config['maxIdleTimeMS']/1000}s")
+            print(f"  • Socket Timeout: {pool_config['socketTimeoutMS']/1000}s")
+            print(f"  • Connection Timeout: {pool_config['connectTimeoutMS']/1000}s")
             
-            print("🚇 Starting SSH tunnel...")
-            self._tunnel.start()
-            print(f"✅ SSH tunnel established on localhost:{self._tunnel.local_bind_port}")
-            
-            print("🔐 Creating MongoDB client with retryWrites=False...")
             self._client = MongoClient(
                 host='localhost',
                 port=self._tunnel.local_bind_port,
                 username=self.DB_USERNAME,
                 password=self.DB_PASSWORD,
-                tls=True,
-                tlsCAFile=self.CA_CERT_PATH,
-                authSource='admin',
-                tlsAllowInvalidHostnames=True,
-                directConnection=True,
-                retryWrites=False
+                **pool_config
             )
 
-            # Test connection
+            # Test connection and validate pool
             print(f"🧪 Testing connection to {self.name}...")
             server_info = self._client.server_info()
             print(f"✅ Connected successfully to {self.name}!")
             print(f"📊 Server version: {server_info.get('version', 'Unknown')}")
             print(f"🔧 Server features: {server_info.get('features', {})}")
+            
+            # Display connection pool status
+            self._log_pool_stats()
 
             # List all databases
             print(f"\n📂 Databases available on {self.name}:")
@@ -202,6 +356,39 @@ class DocumentDB:
         # 7. url_content
         print("  📊 Creating indexes for url_content...")
         db.url_content.create_index([("link", ASCENDING)])
+        
+        # 8. Credit-related collections (Performance optimization)
+        print("  📊 Creating indexes for credit collections...")
+        
+        # User daily credits - most frequently queried
+        try:
+            db.user_daily_credits.create_index([("userEmail", ASCENDING)], background=True)
+            db.user_daily_credits.create_index([("userEmail", ASCENDING), ("lastUpdated", ASCENDING)], background=True)
+            print("    ✅ user_daily_credits indexes created")
+        except Exception as e:
+            print(f"    ⚠️  user_daily_credits indexes: {e}")
+        
+        # User bonus credits
+        try:
+            db.user_bonus_credits.create_index([("user_email", ASCENDING)], background=True)
+            print("    ✅ user_bonus_credits indexes created")
+        except Exception as e:
+            print(f"    ⚠️  user_bonus_credits indexes: {e}")
+        
+        # User additional credits
+        try:
+            db.user_additional_credits.create_index([("userEmail", ASCENDING)], background=True)
+            print("    ✅ user_additional_credits indexes created")
+        except Exception as e:
+            print(f"    ⚠️  user_additional_credits indexes: {e}")
+        
+        # Web3 users mapping
+        try:
+            db.web3_users.create_index([("user_id", ASCENDING)], background=True)
+            db.web3_users.create_index([("wallet_id", ASCENDING)], background=True)
+            print("    ✅ web3_users indexes created")
+        except Exception as e:
+            print(f"    ⚠️  web3_users indexes: {e}")
         
         print("✅ All indexes created successfully!")
 
