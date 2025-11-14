@@ -10,15 +10,15 @@ class DocumentDB:
     
     # DocumentDB endpoints for different targets
     DOCDB_ENDPOINTS = {
-        'web2': 'aiseer-documentdb-1.c3gsycya27j9.us-west-2.docdb.amazonaws.com',
-        'api': 'aiseer-documentdb-2.c3gsycya27j9.us-west-2.docdb.amazonaws.com',
-        'web3': 'aiseer-documentdb-3.c3gsycya27j9.us-west-2.docdb.amazonaws.com'
+        'web2_documentdb': 'aiseer-documentdb-1.c3gsycya27j9.us-west-2.docdb.amazonaws.com',
+        'api_documentdb': 'aiseer-documentdb-2.c3gsycya27j9.us-west-2.docdb.amazonaws.com',
+        'web3_documentdb': 'aiseer-documentdb-3.c3gsycya27j9.us-west-2.docdb.amazonaws.com'
     }
     
     # Direct MongoDB connections (no SSH tunnel)
     WEB2_DIRECT_URI = "mongodb://prodadmin:u43ECwAf1j7RnqnP@ec2-54-201-211-20.us-west-2.compute.amazonaws.com:27017/?directConnection=true&retryWrites=false"
     WEB3_DIRECT_URI = "mongodb://prodadmin:u43ECwAf1j7RnqnP@ec2-54-213-32-246.us-west-2.compute.amazonaws.com:27017/?directConnection=true&retryWrites=false"
-    
+    API_DIRECT_URI = "mongodb://prodadmin:u43ECwAf1j7RnqnP@ec2-35-165-103-243.us-west-2.compute.amazonaws.com:27017/?directConnection=true&retryWrites=false"
     def __new__(cls, name='web2'):
         if name not in cls._instances:
             with cls._lock:
@@ -36,7 +36,9 @@ class DocumentDB:
 
             # DocumentDB internal endpoint based on name
             self.name = name
-            self.DOCDB_HOST = self.DOCDB_ENDPOINTS.get(name, self.DOCDB_ENDPOINTS['web2'])
+            # For direct connections (web2, web3, api), DOCDB_HOST is not used, but we set a default
+            # For SSH tunnel connections, use the appropriate endpoint
+            self.DOCDB_HOST = self.DOCDB_ENDPOINTS.get(name, self.DOCDB_ENDPOINTS.get('web2_documentdb', None))
             self.DOCDB_PORT = 27017
 
             # Auth
@@ -119,7 +121,7 @@ class DocumentDB:
             return self._client
         
         # Check if this is web2 or web3 with direct connection
-        if self.name in ['web2', 'web3']:
+        if self.name in ['web2', 'web3', 'api']:
             return self._connect_direct()
         else:
             return self._connect_ssh_tunnel()
@@ -164,6 +166,8 @@ class DocumentDB:
                 connection_uri = self.WEB2_DIRECT_URI
             elif self.name == 'web3':
                 connection_uri = self.WEB3_DIRECT_URI
+            elif self.name == 'api':
+                connection_uri = self.API_DIRECT_URI
             else:
                 raise ValueError(f"Direct connection not configured for {self.name}")
             
@@ -441,8 +445,9 @@ class DocumentDB:
 document_db_web2 = DocumentDB('web2')
 document_db_api = DocumentDB('api')
 document_db_web3 = DocumentDB('web3')
+document_db_web2_ssh = DocumentDB('web2_documentdb')
 
-# Default instance (web2)
+# Default instance (web2)``
 document_db = document_db_web2
 
 # Helper functions for each target
